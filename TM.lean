@@ -2,6 +2,7 @@ import Mathlib.Data.Set.Basic
 import Mathlib.Data.Set.Countable
 import Mathlib.Data.Set.List
 import Mathlib.Data.Finset.Basic
+import Mathlib.Data.Prod.Basic
 
 universe u
 
@@ -11,9 +12,6 @@ variable (Q : Finset ℕ) [Inhabited Q] -- States
 variable (Λ : Finset ℕ) [Inhabited Λ] -- Inp Alph
 variable (Γ : Finset ℕ) [Inhabited Γ] -- Tape Alph
 variable (F : Finset ℕ) [Inhabited F] -- Fin States
-
-def powerset (s : Set α) : Set (Set α) :=
-  { t | ∀ x, x ∈ t → x ∈ s }
 
 inductive Direction where
   | L : Direction
@@ -31,28 +29,25 @@ def directionToNum (d : Direction) : ℤ :=
 -- cfg = [tl] q [tr], q points to the first elem of tr
 -- hence inital config is [] q_0 [w] for some input w
 structure Cfg where
-  state : ℕ
-  head : ℕ 
-  left : Array ℕ 
-  right : Array ℕ
+  state : ℕ 
+  head : ℕ
+  left : Array ℕ  
+  right : Array ℕ 
 
-structure DTM where
+structure Machine where
   Q : Finset ℕ
-  Λ : Finset ℕ
-  Γ : Finset ℕ
-  δ (q γ : ℕ) : Q × Γ × Direction
-  F : Finset ℕ
-
-inductive Machine
-  | typeDTM : DTM → Machine
-  | typeNTM : NTM → Machine
-
-structure NTM where
-  Q : Finset ℕ 
-  Λ : Finset ℕ
+  Λ : Finset ℕ 
   Γ : Finset ℕ 
-  δ (q γ : ℕ) : Finset (Finset (Q × Γ × Direction))
-  F : Finset ℕ
+  F : Finset ℕ 
+  q0 : ℕ 
+  δ : Finset (ℕ × ℕ → ℕ × ℕ × Direction)
+
+structure DTM  extends Machine where
+
+  uniqueness:
+    ∀ x y : (ℕ × ℕ → ℕ × ℕ × Direction), 
+      ∀ (a₁ a₂ : (ℕ × ℕ)), a₁ = a₂ ↔ x a₁ = y a₂
+
 
 def cfgEquiv (c1 c2 : Cfg) : Prop :=
   c1.state = c2.state ∧ c1.head = c2.head ∧ c1.left = c2.left ∧ c1.right = c2.right
@@ -64,8 +59,8 @@ def updateHead (n: ℕ) (d: Direction) : ℕ :=
     | _, Direction.L => n-1
     | _, Direction.N => n
   
-
-def updateCfg (cfg: Cfg) (s: ℕ) (w: ℕ) (d: Direction) : Cfg := 
+-- creates new config by applying changes to old config
+def updateCfg (cfg: Cfg) (s w : ℕ) (d: Direction) : Cfg := 
   match cfg.head, d with
     | 0, Direction.L => {state := s, head := 0, left := #[],  right := cfg.right.modify 0 w}
     | _, Direction.L => {state := s, head := cfg.head-1, left := cfg.left.pop,  right := cfg.left.insertAt 0 w}
@@ -73,24 +68,21 @@ def updateCfg (cfg: Cfg) (s: ℕ) (w: ℕ) (d: Direction) : Cfg :=
     | _, Direction.N => {state := s, head := cfg.head, left := cfg.left,  right := cfg.right.modify 0 w}
 
 
- -- how to make it s.t. it uses Machine ?
-def step (M : DTM) (cfg : Cfg) : Cfg :=
-  match (M.δ cfg.state cfg.right[0]!) with
-    | (s, w, d) => updateCfg cfg s w d
+def reachSucc (M : Machine) (c1 c2 : Cfg) : Prop :=
+  ∃ (a γ s w : ℕ) (d : Direction), ∃ δ ∈ M.δ, δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
 def isFinal (M : DTM) (cfg : Cfg)  : Prop :=
   cfg.state ∈ M.F
 
-
--- run M from cfg for n steps
-def runN (M : DTM) (cfg : Cfg) (n : ℕ) : Cfg :=
-  if n = 0 then cfg
-  else if (cfg.state ∈ M.F) then cfg 
-  else runN M (step M cfg) (n-1)
+def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
+  if n = 0 then cfgEquiv c1 c2
+  else if n = 1 then reachSucc M c1 c2
+  else ∃ (c3 : Cfg), reachN M (n-1) c1 c3 ∧ reachN M (n-1) c3 c2
 
 
-def finiteReach (M : DTM) (c1 c2 : Cfg) : Prop :=
-  ∃ (n : ℕ), cfgEquiv (runN M c1 n) c2
+def finiteReach (M : Machine) (c1 c2 : Cfg) : Prop :=
+  ∃ (n : ℕ), reachN M n c1 c2
+
 
 -- if c2 can be reached from c1 then there ex a sequence cs of configs from c1 to c2 (maybe emtpy if c2 is succ of c1)
 theorem pathReachability : finiteReach M c1 c2 ↔ (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) :=
