@@ -9,8 +9,11 @@ lean_lib «CTLean» {
   -- add library configuration options here
 }
 
-
 lean_lib «TM» {
+  -- add library configuration options here
+}
+
+lean_lib «Decidability» {
   -- add library configuration options here
 }
 
