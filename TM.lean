@@ -91,6 +91,9 @@ def finiteReach (M : Machine) (c1 c2 : Cfg) : Prop :=
 theorem pathReachability : finiteReach M c1 c2 ↔ (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) :=
   sorry
 
+theorem addCompPathLen : reachN M n c1 c2 ∧ reachN M n c2 c3 ↔ reachN M (m+n) c1 c3 := 
+  sorry
+
 theorem DTMeqNTM : sorry :=
   sorry
 
