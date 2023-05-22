@@ -1,8 +1,8 @@
 import Mathlib.Data.Set.Basic
 import Mathlib.Data.Set.Countable
-import Mathlib.Data.Set.List
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Prod.Basic
+import Mathlib.Data.List.Basic
 
 universe u
 
@@ -31,8 +31,8 @@ def directionToNum (d : Direction) : ℤ :=
 structure Cfg where
   state : ℕ 
   head : ℕ
-  left : Array ℕ  
-  right : Array ℕ 
+  left : List ℕ  
+  right : List ℕ 
 
 structure Machine where
   Q : Finset ℕ
@@ -58,20 +58,23 @@ def updateHead (n: ℕ) (d: Direction) : ℕ :=
     | _, Direction.R => n+1
     | _, Direction.L => n-1
     | _, Direction.N => n
-  
+
+
+
 -- creates new config by applying changes to old config
+-- wut is reverse.tail.reverse bidde
 def updateCfg (cfg: Cfg) (s w : ℕ) (d: Direction) : Cfg := 
   match cfg.head, d with
-    | 0, Direction.L => {state := s, head := 0, left := #[],  right := cfg.right.modify 0 w}
-    | _, Direction.L => {state := s, head := cfg.head-1, left := cfg.left.pop,  right := cfg.left.insertAt 0 w}
-    | _, Direction.R => {state := s, head := cfg.head+1, left := cfg.left.push w,  right := cfg.left.erase 1}
-    | _, Direction.N => {state := s, head := cfg.head, left := cfg.left,  right := cfg.right.modify 0 w}
+    | 0, Direction.L => {state := s, head := 0, left := List.nil,  right := cfg.right.modifyHead w}
+    | _, Direction.L => {state := s, head := cfg.head-1, left := cfg.left.reverse.tail.reverse,  right := [w].append cfg.left}
+    | _, Direction.R => {state := s, head := cfg.head+1, left := cfg.left.append [w],  right := cfg.left.tail}
+    | _, Direction.N => {state := s, head := cfg.head, left := cfg.left,  right := cfg.right.modifyHead w}
 
 
 def reachSucc (M : Machine) (c1 c2 : Cfg) : Prop :=
   ∃ (a γ s w : ℕ) (d : Direction), ∃ δ ∈ M.δ, δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
-def isFinal (M : DTM) (cfg : Cfg)  : Prop :=
+def isFinal (M : Machine) (cfg : Cfg)  : Prop :=
   cfg.state ∈ M.F
 
 def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
@@ -90,5 +93,7 @@ theorem pathReachability : finiteReach M c1 c2 ↔ (∃ (cs : List Cfg), ∀ (c 
 
 theorem DTMeqNTM : sorry :=
   sorry
+
+
 
 
