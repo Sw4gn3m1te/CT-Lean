@@ -3,6 +3,7 @@ import Mathlib.Data.Set.Countable
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Prod.Basic
 import Mathlib.Data.List.Basic
+import Mathlib.Data.Nat.Basic
 
 universe u
 
@@ -38,7 +39,8 @@ structure Machine where
   Q : Finset ℕ
   Λ : Finset ℕ 
   Γ : Finset ℕ 
-  F : Finset ℕ 
+  Fₐ : Finset ℕ
+  Fᵣ : Finset ℕ 
   q0 : ℕ 
   δ : Finset (ℕ × ℕ → ℕ × ℕ × Direction)
 
@@ -74,25 +76,45 @@ def updateCfg (cfg: Cfg) (s w : ℕ) (d: Direction) : Cfg :=
 def reachSucc (M : Machine) (c1 c2 : Cfg) : Prop :=
   ∃ (a γ s w : ℕ) (d : Direction), ∃ δ ∈ M.δ, δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
+def isAccept (M : Machine) (cfg : Cfg)  : Prop :=
+  cfg.state ∈ M.Fₐ
+
+def isReject (M : Machine) (cfg : Cfg)  : Prop :=
+  cfg.state ∈ M.Fᵣ
+
 def isFinal (M : Machine) (cfg : Cfg)  : Prop :=
-  cfg.state ∈ M.F
+  cfg.state ∈ M.Fₐ ∨ cfg.state ∈ M.Fᵣ
 
 def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
-  if n = 0 then cfgEquiv c1 c2
-  else if n = 1 then reachSucc M c1 c2
-  else ∃ (c3 : Cfg), reachN M (n-1) c1 c3 ∧ reachN M (n-1) c3 c2
-
+  match n with
+  | 0 => cfgEquiv c1 c2
+  | 1 => reachSucc M c1 c2
+  | _ => ∃ (c : Cfg), reachN M (n-1) c1 c ∧ reachSucc M c c2
+  
 
 def finiteReach (M : Machine) (c1 c2 : Cfg) : Prop :=
   ∃ (n : ℕ), reachN M n c1 c2
 
 
+
+
 -- if c2 can be reached from c1 then there ex a sequence cs of configs from c1 to c2 (maybe emtpy if c2 is succ of c1)
-theorem pathReachability : finiteReach M c1 c2 ↔ (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) :=
+theorem pathReachability : finiteReach M c1 c2 → (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) := by
+  intro h
   sorry
 
-theorem addCompPathLen : reachN M n c1 c2 ∧ reachN M n c2 c3 ↔ reachN M (m+n) c1 c3 := 
-  sorry
+  
+  
+
+theorem addCompPathLen (n m : ℕ) (M : Machine) (c1 c2 c3 : Cfg) : reachN M n c1 c2 ∧ reachN M m c2 c3 ↔ reachN M (m+n) c1 c3 := by 
+  constructor
+  intro ⟨hrN, hrM⟩
+  induction n
+  rw [Nat.add_zero]
+  rw [reachN] at hrN
+
+  
+  
 
 theorem DTMeqNTM : sorry :=
   sorry
