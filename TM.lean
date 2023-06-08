@@ -56,6 +56,48 @@ structure Dtm  extends Machine where
 def cfgEquiv (c1 c2 : Cfg) : Prop :=
   c1.state = c2.state ∧ c1.head = c2.head ∧ c1.left = c2.left ∧ c1.right = c2.right
 
+@[simp]
+theorem reflCfgEquiv (c : Cfg) : cfgEquiv c c ↔ true := by
+  simp
+  rw [cfgEquiv]
+  simp
+
+@[simp]
+theorem symCfgEquiv (c1 c2 : Cfg) : cfgEquiv c1 c2 ↔ cfgEquiv c2 c1 := by
+  constructor
+  intro h
+  rw [cfgEquiv] at h
+  rw [cfgEquiv]
+  tauto
+  intro h
+  rw [cfgEquiv] at h
+  rw [cfgEquiv]
+  tauto
+
+@[simp]
+theorem transCfgEquiv (c1 c2 c3 : Cfg) : cfgEquiv c1 c2 ∧ cfgEquiv c2 c3 → cfgEquiv c1 c3 := by
+  intro ⟨hl, hr⟩
+  rw [cfgEquiv]
+  rw [cfgEquiv] at hl
+  rw [cfgEquiv] at hr
+  rcases hl with ⟨s_left, h_left, l_left, r_left⟩
+  rcases hr with ⟨s_right, h_right, l_right, r_right⟩
+  constructor
+  rw [s_left]
+  rw [s_right]
+  constructor
+  rw [h_left]
+  rw [h_right]
+  constructor
+  rw [l_left]
+  rw [l_right]
+  rw [r_left]
+  rw [r_right]
+
+
+theorem renameCfgEquivCfgs (c1 c2 : Cfg) : cfgEquiv c1 c2 ↔ c1 = c2 := by
+  sorry
+
 def updateHead (n: ℕ) (d: Direction) : ℕ :=
   match n, d with
     | 0, Direction.L => 0
@@ -90,7 +132,7 @@ def isFinal (M : Machine) (cfg : Cfg)  : Prop :=
 
 def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
   match n with
-  | Nat.zero => true
+  | Nat.zero => cfgEquiv c1 c2
   | Nat.succ m => ∃ (c : Cfg), (reachN M m c1 c ∧ reachSucc M c c2)
 
 
@@ -116,9 +158,12 @@ theorem reach2IfReachSuccSucc (M : Machine) (c1 c2 c3 : Cfg) : reachSucc M c1 c2
   exact hl
 
 
-def MacceptsW (M : Machine) (w : Word) : Prop :=
-  ∃ (c1 c2 : Cfg), finiteReach M c1 c2 ∧ isAccept M c2
+def MacceptsW (M : Machine) (w tleft tright: Word) (s h : ℕ) : Prop :=
+  ∃ (c1 c2 : Cfg), finiteReach M c1 c2 ∧ isAccept M c2 ∧ c2 = {state := s, head := h, left := tleft,  right := tright} ∧ w = tleft++tright
 
+def MrejectsW (M : Machine) (w tleft tright: Word) (s h : ℕ) : Prop :=
+  ∃ (c1 c2 : Cfg), finiteReach M c1 c2 ∧ isReject M c2 ∧ c2 = {state := s, head := h, left := tleft,  right := tright} ∧ w = tleft++tright
+ 
 
 def languageOfMachine (M : Machine)  : Language := 
   { w | ∃ (c1 c2 : Cfg) (tleft tright : Word) (s h : ℕ),
@@ -139,42 +184,59 @@ theorem finiteReachIffReachN (c1 c2 : Cfg) (M : Machine) : finiteReach M c1 c2 �
   rw [finiteReach]
   use n
   exact h
-
-
-theorem finiteReachIffReachN2 (c1 c2 : Cfg) (M : Machine) (n : ℕ) : finiteReach M c1 c2 ↔ reachN M n c1 c2 := by
-  constructor
-  intro h
-  rw [finiteReach] at h
-  rcases n with ⟨zero, m⟩
-  rfl
-  sorry
-  sorry
-
+  
 
   
 
-theorem finiteReachTrans (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
-  repeat rw [finiteReach]
-  intro _
+
+theorem reach0EqCfgEquiv (M : Machine) (c1 c2 : Cfg) : reachN M 0 c1 c2 ↔ cfgEquiv c1 c2 := by
   constructor
   rw [reachN]
+  simp
+  rw [reachN]
+  simp
+  
 
-
-theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) : ∀ (n m : ℕ), (reachN M n c1 c2 ∧ reachN M m c2 c3 ↔ reachN M (m+n) c1 c3) := by 
+-- is it IFF or IF ?
+theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) : ∀ n m : ℕ, ((reachN M n c1 c2 ∧ reachN M m c2 c3) ↔ reachN M (n+m) c1 c3) := by 
   intro n m
   constructor
-  intro ⟨hrN, hrM⟩
-  induction n
-  rw [Nat.add_zero]
+  intro h
   induction m
-  rfl
-  rw [reachN] at hrM
-  use c2
-  sorry
-  rw [reachN] at hrN
-  use c2
+  rw [Nat.add_zero]
+  induction n
+  simp at h
+  repeat rw [reachN] at h
+  rw [reachN]
+  apply transCfgEquiv c1 c2
+  exact h
+  rw [reachN] at h
+  rcases h with ⟨h, eqc2c3⟩
+  rw [renameCfgEquivCfgs] at eqc2c3
+  rw [← eqc2c3]
+  exact h
+  rw [reachN] at h
+  have hr := h.right
+  have hl := h.left
+  rcases hr with ⟨c1, hrr, hrl⟩
   sorry
   intro h
-  rw [← finiteReachIffReachN2]
+  induction m
+  simp at h
+  rw [reach0EqCfgEquiv]
+  rw [renameCfgEquivCfgs]
+  sorry
   sorry
 
+
+theorem transFiniteReach (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
+  intro ⟨hl, hr⟩
+  rcases hl with ⟨nl, hl⟩
+  rcases hr with ⟨nr, hr⟩
+  rw [finiteReach]
+  use nr+nl
+  rw [← addCompPathLen]
+  constructor 
+  sorry
+  sorry
+  sorry
