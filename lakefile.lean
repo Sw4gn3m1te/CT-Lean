@@ -2,11 +2,7 @@ import Lake
 open Lake DSL
 
 package «cT-Lean» {
-  -- add package configuration options here
-}
-
-lean_lib «CTLean» {
-  -- add library configuration options here
+  -- add any package configuration options here
 }
 
 lean_lib «TM» {
@@ -17,10 +13,15 @@ lean_lib «Decidability» {
   -- add library configuration options here
 }
 
+lean_lib «Language» {
+  -- add library configuration options here
+}
+
+
 require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git"
 
 @[default_target]
-lean_exe «cT-Lean» {
-  root := `Main
+lean_lib «CTLean» {
+  -- add any library configuration options here
 }

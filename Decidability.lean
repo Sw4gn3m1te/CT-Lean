@@ -4,25 +4,10 @@ import Mathlib.Data.List.Basic
 
 
 import TM
+import Language
 
 
 universe u
-
-@[reducible]
-def Word := List ℕ
-
-def Word.concat (v w : Word) : Word := List.append v w
-infixr:50 " + " => Word.concat
-
-def v : Word := [1, 2, 3]
-def w : Word := [4, 5]
-#eval v + w
-
-def Word.len (w: Word) : ℕ :=
-  w.length
-
-@[reducible]
-def Language := Set Word
 
 
 theorem lCompIff  (L : Language) : ∀ (w : Word),  (w ∈ L ↔ w ∉ Lᶜ) := by

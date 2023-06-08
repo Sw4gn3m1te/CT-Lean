@@ -5,6 +5,8 @@ import Mathlib.Data.Prod.Basic
 import Mathlib.Data.List.Basic
 import Mathlib.Data.Nat.Basic
 
+import Language
+
 universe u
 
 section
@@ -42,7 +44,7 @@ structure Machine where
   Fₐ : Finset ℕ
   Fᵣ : Finset ℕ 
   q0 : ℕ 
-  δ : Finset (ℕ × ℕ → ℕ × ℕ × Direction)
+  δ : ℕ × ℕ → ℕ × ℕ × Direction
 
 structure Dtm  extends Machine where
 
@@ -64,7 +66,6 @@ def updateHead (n: ℕ) (d: Direction) : ℕ :=
 
 
 -- creates new config by applying changes to old config
--- wut is reverse.tail.reverse bidde
 def updateCfg (cfg: Cfg) (s w : ℕ) (d: Direction) : Cfg := 
   match cfg.head, d with
     | 0, Direction.L => {state := s, head := 0, left := List.nil,  right := cfg.right.modifyHead w}
@@ -73,7 +74,8 @@ def updateCfg (cfg: Cfg) (s w : ℕ) (d: Direction) : Cfg :=
     | _, Direction.N => {state := s, head := cfg.head, left := cfg.left,  right := cfg.right.modifyHead w}
 
 def reachSucc (M : Machine) (c1 c2 : Cfg) : Prop :=
-  ∃ (a γ s w : ℕ) (d : Direction), ∃ δ ∈ M.δ, δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
+  ∃ (a γ s w : ℕ) (d : Direction), M.δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
+
 
 def isAccept (M : Machine) (cfg : Cfg)  : Prop :=
   cfg.state ∈ M.Fₐ
@@ -85,50 +87,94 @@ def isFinal (M : Machine) (cfg : Cfg)  : Prop :=
   cfg.state ∈ M.Fₐ ∨ cfg.state ∈ M.Fᵣ
 
 
-def languageofMachine (M : Machine)
-
---def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
---  if n = 0 then cfgEquiv c1 c2
---  else if n = 1 then reachSucc M c1 c2
---  else ∃ (c3 : Cfg), reachN M (n-1) c1 c3 ∧ reachN M (n-1) c3 c2
-
 
 def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
   match n with
-  | 0 => true
-  | 1 => reachSucc M c1 c2
-  | _ => ∃ (c : Cfg), reachN M (n - 1) c1 c ∧ reachSucc M c c2
+  | Nat.zero => true
+  | Nat.succ m => ∃ (c : Cfg), (reachN M m c1 c ∧ reachSucc M c c2)
+
 
 
 def finiteReach (M : Machine) (c1 c2 : Cfg) : Prop :=
   ∃ (n : ℕ), reachN M n c1 c2
 
 
--- if c2 can be reached from c1 then there ex a sequence cs of configs from c1 to c2 (maybe emtpy if c2 is succ of c1)
-theorem pathReachability : finiteReach M c1 c2 → (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) := by
-  intro h
-  sorry
+theorem reach2IfReachSuccSucc (M : Machine) (c1 c2 c3 : Cfg) : reachSucc M c1 c2 ∧ reachSucc M c2 c3 → reachN M 2 c1 c3 := by
+  intro ⟨hr, a, γ, s, w, d, hl⟩
+  rw [reachN]
+  use c2
+  rw [reachN]
+  constructor
+  use c1
+  rw [reachN]
+  simp
+  rw [reachSucc]
+  rw [reachSucc] at hr
+  exact hr
+  rw [reachSucc]
+  use a, γ, s, w, d
+  exact hl
 
-theorem finiteReachTrans (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
-  intro ⟨hr, n, hl⟩
-  rw [finiteReach]
-  induction n
-  simp at hl
-  sorry
+
+def MacceptsW (M : Machine) (w : Word) : Prop :=
+  ∃ (c1 c2 : Cfg), finiteReach M c1 c2 ∧ isAccept M c2
+
+
+def languageOfMachine (M : Machine)  : Language := 
+  { w | ∃ (c1 c2 : Cfg) (tleft tright : Word) (s h : ℕ),
+   (finiteReach M c1 c2 ∧ isAccept M c2 ∧ c2 = {state := s, head := h, left := tleft,  right := tright} ∧ w = tleft++tright)}
+
+-- if c2 can be reached from c1 then there ex a sequence cs of configs from c1 to c2 (maybe emtpy if c2 is succ of c1)
+theorem pathReachability (M : Machine) (c1 c2 : Cfg) : finiteReach M c1 c2 → (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) := by
   sorry
   
 
 
-theorem addCompPathLen (n m : ℕ) (M : Machine) (c1 c2 c3 : Cfg) : reachN M n c1 c2 ∧ reachN M m c2 c3 ↔ reachN M (m+n) c1 c3 := by 
+theorem finiteReachIffReachN (c1 c2 : Cfg) (M : Machine) : finiteReach M c1 c2 ↔ ∃ (n : ℕ), reachN M n c1 c2 := by
+  constructor
+  intro ⟨n , h⟩
+  use n
+  exact h
+  intro ⟨n ,h⟩
+  rw [finiteReach]
+  use n
+  exact h
+
+
+theorem finiteReachIffReachN2 (c1 c2 : Cfg) (M : Machine) (n : ℕ) : finiteReach M c1 c2 ↔ reachN M n c1 c2 := by
+  constructor
+  intro h
+  rw [finiteReach] at h
+  rcases n with ⟨zero, m⟩
+  rfl
+  sorry
+  sorry
+
+
+  
+
+theorem finiteReachTrans (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
+  repeat rw [finiteReach]
+  intro _
+  constructor
+  rw [reachN]
+
+
+theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) : ∀ (n m : ℕ), (reachN M n c1 c2 ∧ reachN M m c2 c3 ↔ reachN M (m+n) c1 c3) := by 
+  intro n m
   constructor
   intro ⟨hrN, hrM⟩
   induction n
   rw [Nat.add_zero]
-  simp at hrN
+  induction m
+  rfl
+  rw [reachN] at hrM
+  use c2
   sorry
+  rw [reachN] at hrN
+  use c2
   sorry
+  intro h
+  rw [← finiteReachIffReachN2]
   sorry
-
-
-
 
