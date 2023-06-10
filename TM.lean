@@ -50,17 +50,21 @@ structure Dtm  extends Machine where
 
   uniqueness:
     ∀ x y : (ℕ × ℕ → ℕ × ℕ × Direction), 
-      ∀ (a₁ a₂ : (ℕ × ℕ)), a₁ = a₂ ↔ x a₁ = y a₂
+      ∀ (a b : (ℕ × ℕ)), a = b ↔ x a = y b
 
+
+def TMExample : Machine := {Q:= Finset.range 3, Λ:= Finset.range 3, Γ:= Finset.range 3, Fₐ:= Finset.range 3, Fᵣ:= Finset.empty, q0:= 1, 
+                            δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L)}
 
 def cfgEquiv (c1 c2 : Cfg) : Prop :=
   c1.state = c2.state ∧ c1.head = c2.head ∧ c1.left = c2.left ∧ c1.right = c2.right
 
+
 @[simp]
-theorem reflCfgEquiv (c : Cfg) : cfgEquiv c c ↔ true := by
-  simp
+theorem reflCfgEquiv (c : Cfg) : cfgEquiv c c := by
   rw [cfgEquiv]
   simp
+
 
 @[simp]
 theorem symCfgEquiv (c1 c2 : Cfg) : cfgEquiv c1 c2 ↔ cfgEquiv c2 c1 := by
@@ -73,6 +77,7 @@ theorem symCfgEquiv (c1 c2 : Cfg) : cfgEquiv c1 c2 ↔ cfgEquiv c2 c1 := by
   rw [cfgEquiv] at h
   rw [cfgEquiv]
   tauto
+
 
 @[simp]
 theorem transCfgEquiv (c1 c2 c3 : Cfg) : cfgEquiv c1 c2 ∧ cfgEquiv c2 c3 → cfgEquiv c1 c3 := by
@@ -95,7 +100,7 @@ theorem transCfgEquiv (c1 c2 c3 : Cfg) : cfgEquiv c1 c2 ∧ cfgEquiv c2 c3 → c
   rw [r_right]
 
 
-theorem renameCfgEquivCfgs (c1 c2 : Cfg) : cfgEquiv c1 c2 ↔ c1 = c2 := by
+theorem cfgEquivIffEq (c1 c2 : Cfg) : cfgEquiv c1 c2 ↔ c1 = c2 := by
   sorry
 
 def updateHead (n: ℕ) (d: Direction) : ℕ :=
@@ -158,16 +163,14 @@ theorem reach2IfReachSuccSucc (M : Machine) (c1 c2 c3 : Cfg) : reachSucc M c1 c2
   exact hl
 
 
-def MacceptsW (M : Machine) (w tleft tright: Word) (s h : ℕ) : Prop :=
-  ∃ (c1 c2 : Cfg), finiteReach M c1 c2 ∧ isAccept M c2 ∧ c2 = {state := s, head := h, left := tleft,  right := tright} ∧ w = tleft++tright
+def mAcceptsW (M : Machine) (w : Word) : Prop :=
+  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil,  right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2
 
-def MrejectsW (M : Machine) (w tleft tright: Word) (s h : ℕ) : Prop :=
-  ∃ (c1 c2 : Cfg), finiteReach M c1 c2 ∧ isReject M c2 ∧ c2 = {state := s, head := h, left := tleft,  right := tright} ∧ w = tleft++tright
+def mRejectsW (M : Machine) (w : Word) : Prop :=
+  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil,  right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2
  
-
 def languageOfMachine (M : Machine)  : Language := 
-  { w | ∃ (c1 c2 : Cfg) (tleft tright : Word) (s h : ℕ),
-   (finiteReach M c1 c2 ∧ isAccept M c2 ∧ c2 = {state := s, head := h, left := tleft,  right := tright} ∧ w = tleft++tright)}
+  { w | mAcceptsW M w}
 
 -- if c2 can be reached from c1 then there ex a sequence cs of configs from c1 to c2 (maybe emtpy if c2 is succ of c1)
 theorem pathReachability (M : Machine) (c1 c2 : Cfg) : finiteReach M c1 c2 → (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) := by
@@ -186,45 +189,50 @@ theorem finiteReachIffReachN (c1 c2 : Cfg) (M : Machine) : finiteReach M c1 c2 �
   exact h
   
 
-  
-
-
 theorem reach0EqCfgEquiv (M : Machine) (c1 c2 : Cfg) : reachN M 0 c1 c2 ↔ cfgEquiv c1 c2 := by
   constructor
   rw [reachN]
   simp
   rw [reachN]
   simp
-  
+
+theorem reachNPlusOne (M : Machine) (c1 c3 : Cfg) (n : ℕ) : (∃ (c : Cfg), (reachN M n c1 c ∧ reachSucc M c c3)) ↔ reachN M (Nat.succ n) c1 c3 := by
+  constructor
+  intro h
+  rw [reachN]
+  exact h
+  intro h
+  rw [reachN] at h
+  exact h
+
 
 -- is it IFF or IF ?
-theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) : ∀ n m : ℕ, ((reachN M n c1 c2 ∧ reachN M m c2 c3) ↔ reachN M (n+m) c1 c3) := by 
-  intro n m
+theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) (n m : ℕ) :  (∃ c, (reachN M n c1 c ∧ reachN M m c c3)) ↔ reachN M (n+m) c1 c3 := by 
   constructor
   intro h
   induction m
   rw [Nat.add_zero]
   induction n
-  simp at h
-  repeat rw [reachN] at h
-  rw [reachN]
+  rcases h with ⟨c2, ⟨hl, hr⟩⟩
   apply transCfgEquiv c1 c2
-  exact h
-  rw [reachN] at h
-  rcases h with ⟨h, eqc2c3⟩
-  rw [renameCfgEquivCfgs] at eqc2c3
-  rw [← eqc2c3]
-  exact h
-  rw [reachN] at h
-  have hr := h.right
-  have hl := h.left
-  rcases hr with ⟨c1, hrr, hrl⟩
+  rw [reachN] at hl
+  rw [reachN] at hr
+  exact ⟨hl, hr⟩
+
+  rcases h with ⟨c2, ⟨hl, hr⟩⟩
+  rw [reachN] at hr
+  rw [← reachNPlusOne] at hl
+  rw [reachN]
+  rw [cfgEquivIffEq] at hr
+  rw [← hr]
+  exact hl
+
+  rcases h with ⟨c2, hl ,hr⟩
   sorry
+
   intro h
-  induction m
-  simp at h
-  rw [reach0EqCfgEquiv]
-  rw [renameCfgEquivCfgs]
+  use c2
+  constructor
   sorry
   sorry
 
