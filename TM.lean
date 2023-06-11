@@ -35,16 +35,19 @@ structure Cfg where
   state : ℕ 
   head : ℕ
   left : List ℕ  
-  right : List ℕ 
+  right : List ℕ
 
 structure Machine where
   Q : Finset ℕ
   Λ : Finset ℕ 
   Γ : Finset ℕ 
-  Fₐ : Finset ℕ
-  Fᵣ : Finset ℕ 
+  F : Finset ℕ
   q0 : ℕ 
   δ : ℕ × ℕ → ℕ × ℕ × Direction
+
+  --FInQ:
+  --  ∀ q : ℕ, q ∈ F → q ∈ Q
+  
 
 structure Dtm  extends Machine where
 
@@ -53,8 +56,13 @@ structure Dtm  extends Machine where
       ∀ (a b : (ℕ × ℕ)), a = b ↔ x a = y b
 
 
-def TMExample : Machine := {Q:= Finset.range 3, Λ:= Finset.range 3, Γ:= Finset.range 3, Fₐ:= Finset.range 3, Fᵣ:= Finset.empty, q0:= 1, 
+def TMExample : Machine := {Q:= Finset.range 3, Λ:= Finset.range 3, Γ:= Finset.range 3, F:= Finset.empty, q0:= 1,
                             δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L)}
+
+
+
+def coTm (M : Machine) : Machine :=
+  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ}
 
 def cfgEquiv (c1 c2 : Cfg) : Prop :=
   c1.state = c2.state ∧ c1.head = c2.head ∧ c1.left = c2.left ∧ c1.right = c2.right
@@ -120,26 +128,28 @@ def updateCfg (cfg: Cfg) (s w : ℕ) (d: Direction) : Cfg :=
     | _, Direction.R => {state := s, head := cfg.head+1, left := cfg.left.append [w],  right := cfg.left.tail}
     | _, Direction.N => {state := s, head := cfg.head, left := cfg.left,  right := cfg.right.modifyHead w}
 
-def reachSucc (M : Machine) (c1 c2 : Cfg) : Prop :=
-  ∃ (a γ s w : ℕ) (d : Direction), M.δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
+--def reachSuccOld (M : Machine) (c1 c2 : Cfg) : Prop :=
+--  ∃ (a γ s w : ℕ) (d : Direction), M.δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
+
+def reachSucc (M : Machine) (c1 c2 : Cfg) : Prop :=
+  ∃ (s w : ℕ) (d : Direction), M.δ (c1.state, c1.right.head!) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
 def isAccept (M : Machine) (cfg : Cfg)  : Prop :=
-  cfg.state ∈ M.Fₐ
+  cfg.state ∈ M.F ∧ cfg.state ∈ M.Q
 
 def isReject (M : Machine) (cfg : Cfg)  : Prop :=
-  cfg.state ∈ M.Fᵣ
+  cfg.state ∉ M.F ∧ cfg.state ∈ M.Q
 
-def isFinal (M : Machine) (cfg : Cfg)  : Prop :=
-  cfg.state ∈ M.Fₐ ∨ cfg.state ∈ M.Fᵣ
-
+-- just stand still if term ?
+def isFinal (M  : Machine) (cfg : Cfg) : Prop :=
+  M.δ (cfg.state, cfg.right.head!) = (cfg.state, cfg.right.head!, Direction.N)
 
 
 def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
   match n with
   | Nat.zero => cfgEquiv c1 c2
   | Nat.succ m => ∃ (c : Cfg), (reachN M m c1 c ∧ reachSucc M c c2)
-
 
 
 def finiteReach (M : Machine) (c1 c2 : Cfg) : Prop :=
@@ -164,10 +174,10 @@ theorem reach2IfReachSuccSucc (M : Machine) (c1 c2 c3 : Cfg) : reachSucc M c1 c2
 
 
 def mAcceptsW (M : Machine) (w : Word) : Prop :=
-  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil,  right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2
+  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil,  right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2 ∧ isFinal M c2
 
 def mRejectsW (M : Machine) (w : Word) : Prop :=
-  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil,  right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2
+  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil,  right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2 ∧ isFinal M c2
  
 def languageOfMachine (M : Machine)  : Language := 
   { w | mAcceptsW M w}
