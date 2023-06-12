@@ -80,7 +80,6 @@ theorem mReachSuccIffCoMReachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c
   use s, w, d
   exact ⟨hl, hr⟩ 
   
-  
 
 theorem mReachNIffCoMReachN (M : Machine) (c1 c2 : Cfg) (n : ℕ) : reachN M n c1 c2 ↔ reachN (coTm M) n c1 c2 := by
   constructor
@@ -91,7 +90,6 @@ theorem mReachNIffCoMReachN (M : Machine) (c1 c2 : Cfg) (n : ℕ) : reachN M n c
   rcases h with ⟨c, h⟩
   use c
   constructor
-  -- should be by IH ??
   sorry
   rcases h with ⟨h, s, w, d, h1⟩
   use s, w, d
@@ -214,16 +212,15 @@ theorem decidableLIffdecidableCoL (L : Language) : decidable L ↔ decidable (L�
   rw [mAcceptsWIffCoMRejectsW] at hl
   exact hl
 
+
 theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
   constructor
   intro ⟨M, h⟩
   rw [coSemiDecidable]
-  use (coTm M)
+  use M
   intro w
   specialize h w
   simp
-  rw [mAcceptsW] at h
-  rw [mRejectsW]
   repeat sorry
 
 
@@ -231,65 +228,70 @@ theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecid
   constructor
   intro ⟨M, h⟩
   constructor
-  unfold semiDecidable
+  rw [semiDecidable]
   use M
   intro w
   specialize h w
-  rcases h with ⟨c1, c2, semi, co_semi⟩
-  use c1
-  use c2 
-  intro wi 
-  exact semi wi
-
-  unfold semiDecidable
-  use M
+  rcases h with ⟨hl, hr⟩
+  intro wi
+  apply hl wi
+  rw [semiDecidable]
+  use (coTm M)
   intro w
   specialize h w
-  rcases h with ⟨c1, c2, semi, co_semi⟩
-  use c1
-  use c2
+  rcases h with ⟨hl ,hr⟩
   simp
-  intro wo
+  rw [mAcceptsWIffCoMRejectsW]
+  rw [← mEqCoCoM]
+  exact hr
+  intro ⟨hl, hr⟩
+  rw [decidable]
+  rcases hl with ⟨M, hl⟩
+  rcases hr with ⟨coM, hr⟩
+  use M
+  intro w
+  specialize hl w
+  specialize hr w
+  constructor
+  exact hl
   sorry
-  sorry
-
 
 theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidable L ∧ coSemiDecidable L) := by
   constructor
   intro ⟨M, h⟩
   constructor
-  unfold semiDecidable
+  rw [semiDecidable]
   use M
   intro w
   specialize h w
-  rcases h with ⟨c1, c2, semi, co_semi⟩
-  use c1, c2
+  rcases h with ⟨hl, hr⟩ 
   intro wi
-  exact semi wi
-
-  unfold coSemiDecidable
-  use M
+  apply hl wi
+  rw [coSemiDecidable]
+  use (coTm M)
   intro w
   specialize h w
-  rcases h with ⟨c1, c2, semi, co_semi⟩
-  use c1, c2
-  intro wo
-  exact co_semi wo
-
-  intro ⟨semi_L, co_semi_L⟩
-  rcases semi_L with ⟨M1, semi_L⟩
-  specialize semi_L w
-  rcases semi_L with ⟨c1, c2, semi_L⟩
-  rcases co_semi_L with ⟨M2, co_semi_L⟩
-  specialize co_semi_L w
-  rcases co_semi_L with ⟨c3, c4, co_semi_L⟩
-  rw [decidable]
-  use M1 -- construct Machine how ?
-  intro w2
-  use c1, c2
-  -- exact ⟨semi_L, co_semi_L⟩
+  rcases h with ⟨hl, hr⟩ 
+  rw [← mAcceptsWIffCoMRejectsW]
+  exact hl
+  intro ⟨hl, hr⟩
+  rcases hl with ⟨M, hl⟩
+  rcases hr with ⟨coM, hr⟩
+  use M
+  intro w
+  specialize hl w
+  specialize hr w
+  constructor
+  exact hl
   sorry
-  
+
+
+
+theorem wInLIffWNotInCoL (L : Language) (w : Word) : w ∈ L ↔ w ∉ Lᶜ := by
+  simp
+
+theorem wInLAcceptsIffWNotInLRejects (L : Language) (M : Machine) (w : Word) : (w ∈ L → mAcceptsW M w) ↔ (w ∉ L → mRejectsW M w) := by
+  sorry
 
   
   
