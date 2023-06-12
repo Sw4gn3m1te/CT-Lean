@@ -21,36 +21,23 @@ theorem lCompIff  (L : Language) : ∀ (w : Word),  (w ∈ L ↔ w ∉ Lᶜ) := 
 --    (w ∉ L → ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ (isReject M c2 → finiteReach M c1 c2))) 
 
 
+def isSemiDecider (M : Machine) (L : Language) : Prop := 
+  ∀ (w : Word), (w ∈ L → mAcceptsW M w)
+
+def isCoSemiDecider (M : Machine) (L : Language) : Prop := 
+  ∀ (w : Word), (w ∉ L → mRejectsW M w)
 
 def isDecider (M : Machine) (L : Language) : Prop := 
-  ∀ (w : Word), ∃ (c1 c2 : Cfg), (
-    (w ∈ L → c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2) ∧ 
-    (w ∉ L → c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2))
-
-def isEnumerator (M : Machine) (L : Language) : Prop :=
-  ∀ (w : Word), ∃ (c1 c2 : Cfg), w ∈ L → (c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ 
-    (finiteReach M c1 c2 ∧ isAccept M c2))
-
-def isSemiDecider (M : Machine) : Prop :=
-  ∀ (w : Word), ∃ (c1 c2 : Cfg), (c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ 
-    (finiteReach M c1 c2 ∧ isAccept M c2))
-
-def isCoSemiDecider (M : Machine) : Prop :=
-  ∀ (w : Word), ∃ (c1 c2 : Cfg), (c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ 
-    (finiteReach M c1 c2 ∧ isReject M c2))
+  ∀ (w : Word), (w ∈ L → mAcceptsW M w) ∧ (w ∉ L → mRejectsW M w)
 
 def semiDecidable (L : Language) : Prop :=
-  ∃ (M : Machine), ∀ (w : Word), ∃ (c1 c2 : Cfg),
-    (w ∈ L → c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2)
+  ∃ (M : Machine), ∀ (w : Word), (w ∈ L → mAcceptsW M w)
 
 def coSemiDecidable (L : Language) : Prop :=
-  ∃ (M : Machine), ∀ (w : Word), ∃ (c1 c2 : Cfg),
-    (w ∉ L → c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2)
+  ∃ (M : Machine), ∀ (w : Word), (w ∈ L → mRejectsW M w)
 
 def decidable (L : Language) : Prop := 
-  ∃ (M : Machine), ∀ (w : Word), ∃ (c1 c2 : Cfg), 
-    ((w ∈ L → c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2) ∧ 
-    (w ∉ L → c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2))
+  ∃ (M : Machine), ∀ (w : Word), (w ∈ L → mAcceptsW M w) ∧ (w ∉ L → mRejectsW M w)
 
 
 theorem test {α : Type u} {s : Set α} {x : α} : ¬x ∈ sᶜ ↔ x ∈ s := by
@@ -62,44 +49,82 @@ theorem exDeciderIffDecidable (L : Language) : (∃ (M : Machine), isDecider M L
   use M
   intro w
   specialize h w
-  rcases h with ⟨c1, c2, win, wout⟩
-  use c1, c2
-  constructor
-  intro wi
-  exact win wi
-  intro wo
-  exact wout wo
+  exact h
   intro ⟨M, h⟩
   use M
-  rw [isDecider]
   intro w
   specialize h w
-  rcases h with ⟨c1, c2, win, wout⟩
-  use c1, c2
-  exact ⟨win, wout⟩
-
-theorem exEnumeratorIffSemiDecidable (M : Machine) (L : Language) : isEnumerator M L ↔ semiDecidable L := by
-  rw [isEnumerator, semiDecidable]
-  constructor
-  intro h
-  use M
   exact h
-  intro ⟨M2, h⟩
-  intro w
-  specialize h w
-  rcases h with ⟨c1, c2, h⟩
-  use c1, c2
-  sorry
 
-theorem qMFaIffNotQCoMFa (M : Machine) (c : Cfg) (q : ℕ) : q ∈ M.F ↔ q ∉ (coTm M).F := by
+theorem qMFaIffNotQCoMFa (M : Machine) (c : Cfg) (q : ℕ) : q ∈ M.F ∧ q ∈ M.Q ↔ q ∉ (coTm M).F ∧ q ∈ (coTm M).Q := by
   rw [coTm]
   simp
-  constructor
-  intro h _
-  exact h
   intro h
-  -- not provalble with current def of M 
+  constructor
+  intro h1 _
+  exact h1
+  intro h3
+  apply h3 h
+
+theorem mReachSuccIffCoMReachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c2 ↔ reachSucc (coTm M) c1 c2 := by
+  constructor
+  intro ⟨s, w, d, hl, hr⟩
+  use s, w, d
+  rw [coTm]
+  simp
+  have c3 := (updateCfg c1 s w d)
+  rw [symCfgEquiv] at hr
+  exact ⟨hl, hr⟩ 
+  intro ⟨s, w, d, hl, hr⟩
+  rw [reachSucc]
+  use s, w, d
+  exact ⟨hl, hr⟩ 
+  
+  
+
+theorem mReachNIffCoMReachN (M : Machine) (c1 c2 : Cfg) (n : ℕ) : reachN M n c1 c2 ↔ reachN (coTm M) n c1 c2 := by
+  constructor
+  induction n
+  intro h
+  assumption
+  intro h
+  rcases h with ⟨c, h⟩
+  use c
+  constructor
+  -- should be by IH ??
   sorry
+  rcases h with ⟨h, s, w, d, h1⟩
+  use s, w, d
+  exact h1
+  induction n
+  intro h
+  assumption
+  intro ⟨c, hl, hr⟩
+  rcases hr with ⟨s, w, d, h1, h2⟩
+  rw [reachN]
+  use c
+  rw [coTm] at h1
+  simp at h1
+  constructor
+  sorry
+  rw [reachSucc]
+  use s, w, d
+  exact ⟨h1, h2⟩
+
+
+theorem mFiniteReachIffCoMFiniteReach (M : Machine) (c1 c2 : Cfg) : finiteReach M c1 c2 ↔ finiteReach (coTm M) c1 c2 := by
+  rw [finiteReach]
+  constructor
+  intro ⟨n, h⟩
+  rw [mReachNIffCoMReachN] at h
+  rw [finiteReach]
+  use n
+  exact h
+  intro ⟨n, h⟩
+  rw [← mReachNIffCoMReachN] at h
+  use n
+  exact h
+
 
 theorem mAcceptsCIffCoMRejectsC (M : Machine) (c : Cfg) : isAccept M c ↔ isReject (coTm M) c := by 
   rw [isAccept, isReject, coTm]
@@ -113,29 +138,48 @@ theorem mAcceptsCIffCoMRejectsC (M : Machine) (c : Cfg) : isAccept M c ↔ isRej
   exact h
 
 
-theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
+theorem mAcceptsWIffCoMRejectsW (M : Machine) (w : Word) : mAcceptsW M w ↔ mRejectsW (coTm M) w := by 
+  rw [mAcceptsW, mRejectsW]
   constructor
-  intro ⟨M, h⟩
-  rw [coSemiDecidable]
-  specialize h w
-  rcases h with ⟨c1, c2, h⟩
-  use M
-  intro w2
-  use c1
-  use c2
+  intro ⟨c1, c2, h1, h2, h3, h4⟩
+  use c1, c2
+  constructor
+  exact h1
+  constructor  
+  rw [mFiniteReachIffCoMFiniteReach] at h2
+  exact h2
+  rw [isReject, coTm]
   simp
-  sorry
-  intro ⟨M, h⟩
-  rw [semiDecidable]
-  specialize h w
-  rcases h with ⟨c1, c2, h⟩
-  simp at h
-  use M
-  intro w2
-  use c1
-  use c2
-  intro wi
-  sorry
+  constructor
+  rw [isAccept] at h3
+  constructor
+  intro _
+  exact h3.left
+  exact h3.right
+  rw [isFinal] at h4
+  rw [isFinal]
+  simp
+  exact h4
+  intro ⟨c1, c2, h1, h2, h3⟩
+  use c1, c2
+  constructor
+  exact h1
+  constructor
+  rw [mFiniteReachIffCoMFiniteReach]
+  exact h2
+  rw [mAcceptsCIffCoMRejectsC]
+  exact h3
+
+theorem mRejectsWIffCoMAcceptsW (M : Machine) (w : Word) : mRejectsW M w ↔ mAcceptsW (coTm M) w := by 
+  constructor
+  intro h
+  rw [mAcceptsWIffCoMRejectsW]
+  rw [← mEqCoCoM]
+  exact h
+  intro h
+  rw [mAcceptsWIffCoMRejectsW] at h
+  rw [← mEqCoCoM] at h
+  exact h
 
 theorem decidableLIffdecidableCoL (L : Language) : decidable L ↔ decidable (Lᶜ) := by
   constructor
@@ -144,12 +188,43 @@ theorem decidableLIffdecidableCoL (L : Language) : decidable L ↔ decidable (L�
   use (coTm M)
   intro w
   specialize h w
-  rcases h with ⟨c1, c2, h⟩
-  use c1, c2
+  rcases h with ⟨hl, hr⟩
+  constructor
   simp
-  sorry
-  sorry
+  intro wo
+  specialize hr wo
+  rw [mRejectsWIffCoMAcceptsW] at hr 
+  exact hr
+  simp
+  rw [mAcceptsWIffCoMRejectsW] at hl
+  exact hl
+  intro ⟨M, h⟩
+  rw [decidable]
+  use (coTm M)
+  intro w
+  specialize h w
+  rcases h with ⟨hl, hr⟩
+  constructor
+  simp at hr
+  intro wi
+  specialize hr wi
+  rw [mRejectsWIffCoMAcceptsW] at hr 
+  exact hr
+  simp
+  rw [mAcceptsWIffCoMRejectsW] at hl
+  exact hl
 
+theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
+  constructor
+  intro ⟨M, h⟩
+  rw [coSemiDecidable]
+  use (coTm M)
+  intro w
+  specialize h w
+  simp
+  rw [mAcceptsW] at h
+  rw [mRejectsW]
+  repeat sorry
 
 
 theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecidable L ∧ semiDecidable (Lᶜ)) := by

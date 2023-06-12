@@ -64,6 +64,15 @@ def TMExample : Machine := {Q:= Finset.range 3, Λ:= Finset.range 3, Γ:= Finset
 def coTm (M : Machine) : Machine :=
   {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ}
 
+
+theorem mExpand (M : Machine) : M = { Q := M.Q, Λ := M.Λ, Γ := M.Γ, F := M.Q ∩ M.F, q0 := M.q0, δ := M.δ } := by
+  sorry
+
+theorem mEqCoCoM (M : Machine) : M = coTm (coTm M) := by
+  repeat rw [coTm]
+  simp
+  rw [← mExpand]
+
 def cfgEquiv (c1 c2 : Cfg) : Prop :=
   c1.state = c2.state ∧ c1.head = c2.head ∧ c1.left = c2.left ∧ c1.right = c2.right
 
@@ -174,10 +183,10 @@ theorem reach2IfReachSuccSucc (M : Machine) (c1 c2 c3 : Cfg) : reachSucc M c1 c2
 
 
 def mAcceptsW (M : Machine) (w : Word) : Prop :=
-  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil,  right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2 ∧ isFinal M c2
+  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2 ∧ isFinal M c2
 
 def mRejectsW (M : Machine) (w : Word) : Prop :=
-  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil,  right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2 ∧ isFinal M c2
+  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2 ∧ isFinal M c2
  
 def languageOfMachine (M : Machine)  : Language := 
   { w | mAcceptsW M w}
