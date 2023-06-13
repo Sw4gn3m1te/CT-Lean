@@ -81,39 +81,51 @@ theorem mReachSuccIffCoMReachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c
   exact ⟨hl, hr⟩ 
   
 
+theorem mReachSuccIffCoMreachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c2 ↔ reachSucc (coTm M) c1 c2 := by
+  constructor
+  intro ⟨s, w, d, hl, hr⟩
+  use s, w, d
+  simp_rw [coTm]
+  exact ⟨hl, hr⟩
+  intro ⟨s, w, d, hl, hr⟩
+  use s, w, d
+  simp_rw [coTm]
+  exact ⟨hl, hr⟩
+
 theorem mReachNIffCoMReachN (M : Machine) (c1 c2 : Cfg) (n : ℕ) : reachN M n c1 c2 ↔ reachN (coTm M) n c1 c2 := by
   constructor
-  induction n
+  induction n with 
+    | zero =>
+      intro h
+      assumption
+    | succ n ih =>
+      intro h
+      rcases h with ⟨c, hl, hr⟩
+      use c
+      constructor
+      rw [← mReachNIffCoMReachN]
+      exact hl
+      rw [← mReachSuccIffCoMReachSucc]
+      exact hr
   intro h
-  assumption
-  intro h
-  rcases h with ⟨c, h⟩
-  use c
-  constructor
-  sorry
-  rcases h with ⟨h, s, w, d, h1⟩
-  use s, w, d
-  exact h1
-  induction n
-  intro h
-  assumption
-  intro ⟨c, hl, hr⟩
-  rcases hr with ⟨s, w, d, h1, h2⟩
-  rw [reachN]
-  use c
-  rw [coTm] at h1
-  simp at h1
-  constructor
-  sorry
-  rw [reachSucc]
-  use s, w, d
-  exact ⟨h1, h2⟩
-
+  induction n with 
+    | zero =>
+      assumption
+    | succ n ih =>
+      rcases h with ⟨c, hl, hr⟩
+      use c
+      constructor
+      rw [mReachNIffCoMReachN]
+      exact hl
+      rw [mReachSuccIffCoMReachSucc]
+      exact hr
+      
 
 theorem mFiniteReachIffCoMFiniteReach (M : Machine) (c1 c2 : Cfg) : finiteReach M c1 c2 ↔ finiteReach (coTm M) c1 c2 := by
   rw [finiteReach]
   constructor
   intro ⟨n, h⟩
+  
   rw [mReachNIffCoMReachN] at h
   rw [finiteReach]
   use n

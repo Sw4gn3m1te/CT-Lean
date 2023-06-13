@@ -37,6 +37,7 @@ structure Cfg where
   left : List ℕ  
   right : List ℕ
 
+
 structure Machine where
   Q : Finset ℕ
   Λ : Finset ℕ 
@@ -56,22 +57,33 @@ structure Dtm  extends Machine where
       ∀ (a b : (ℕ × ℕ)), a = b ↔ x a = y b
 
 
+-- lets assume M1.Q ∩ M2.Q = ∅ 
+-- then use gödel numbering for states 
+def prodTm (M1 M2 : Machine) : Machine :=
+  {Q := (Finset.product M1.Q M2.Q).image (fun n : ℕ × ℕ => 2 ^ n.1 * 3 ^ n.2),
+   Λ := M1.Λ ∪ M2.Λ, Γ := M1.Γ ∪ M2.Γ,
+   F := (Finset.product (M1.F ∩ M2.F) (M1.F ∩ M2.F)).image (fun n : ℕ × ℕ => 2 ^ n.1 * 3 ^ n.2) , q0 := 2^M1.q0*2^M2.q0, δ:=M1.δ}
+
+  
 def TMExample : Machine := {Q:= Finset.range 3, Λ:= Finset.range 3, Γ:= Finset.range 3, F:= Finset.empty, q0:= 1,
                             δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L)}
 
+def TMExample2 : Machine := {Q:= Finset.range 4, Λ:= Finset.range 4, Γ:= Finset.range 4, F:= Finset.empty, q0:= 1,
+                             δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L)}
 
 
 def coTm (M : Machine) : Machine :=
   {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ}
 
 
-theorem mExpand (M : Machine) : M = { Q := M.Q, Λ := M.Λ, Γ := M.Γ, F := M.Q ∩ M.F, q0 := M.q0, δ := M.δ } := by
+theorem mExpand (M : Machine) : M = { Q := M.Q, Λ := M.Λ, Γ := M.Γ, F := M.F, q0 := M.q0, δ := M.δ } := by
   sorry
 
 theorem mEqCoCoM (M : Machine) : M = coTm (coTm M) := by
   repeat rw [coTm]
   simp
-  rw [← mExpand]
+  -- needs FInQ 
+  sorry
 
 def cfgEquiv (c1 c2 : Cfg) : Prop :=
   c1.state = c2.state ∧ c1.head = c2.head ∧ c1.left = c2.left ∧ c1.right = c2.right
@@ -225,54 +237,31 @@ theorem reachNPlusOne (M : Machine) (c1 c3 : Cfg) (n : ℕ) : (∃ (c : Cfg), (r
   exact h
 
 
--- is it IFF or IF ?
-theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) (n m : ℕ) :  (∃ c, (reachN M n c1 c ∧ reachN M m c c3)) ↔ reachN M (n+m) c1 c3 := by 
-  constructor
-  intro h
-  induction m
-  rw [Nat.add_zero]
-  induction n
-  rcases h with ⟨c2, ⟨hl, hr⟩⟩
-  apply transCfgEquiv c1 c2
-  rw [reachN] at hl
-  rw [reachN] at hr
-  exact ⟨hl, hr⟩
-
-  rcases h with ⟨c2, ⟨hl, hr⟩⟩
-  rw [reachN] at hr
-  rw [← reachNPlusOne] at hl
-  rw [reachN]
-  rw [cfgEquivIffEq] at hr
-  rw [← hr]
-  exact hl
-  rcases h with ⟨c2, hl ,hr⟩
-  sorry
-  intro h
-  use c2
-  constructor
-  sorry
-  sorry
-
 theorem addCompPathLen2 (M : Machine) (c1 c2 c3 : Cfg) (n m : ℕ) :  (∃ c2, (reachN M n c1 c2 ∧ reachN M m c2 c3)) ↔ reachN M (n+m) c1 c3 := by 
   constructor
-  intro ⟨c2, hl, hr⟩
-  induction n
-  induction m
-  simp_rw [reachN]
-  simp_rw [reachN] at hr hl
-  apply transCfgEquiv c1 c2
-  exact ⟨hl, hr⟩
-  simp_rw [reachN]
-  use c2
-  simp_rw [reachN]
-  simp
-  rw [reachN] at hl
-  constructor
-  repeat sorry
-
-
-
-
+  intro h
+  rcases h with ⟨c, hl, hr⟩
+  induction m with 
+    | zero =>
+      simp
+      rw [reachN] at hr
+      rw [cfgEquivIffEq] at hr
+      rw [← hr]
+      exact hl
+    | succ m ih =>
+      induction n with 
+        | zero =>
+          simp 
+          rw [reachN] at hl
+          rw [cfgEquivIffEq] at hl
+          rw [hl]
+          exact hr
+        | succ n jh =>
+          rw [← addCompPathLen2]
+          use c
+          exact ⟨hl, hr⟩
+          exact c
+      
 theorem transFiniteReach (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
   intro ⟨hl, hr⟩
   rcases hl with ⟨nl, hl⟩
