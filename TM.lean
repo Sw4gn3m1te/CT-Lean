@@ -57,6 +57,10 @@ structure Dtm  extends Machine where
       ∀ (a b : (ℕ × ℕ)), a = b ↔ x a = y b
 
 
+def startCfg (M : Machine) (w : Word) : Cfg := 
+  {state:=M.q0, head:=0, left:=List.nil, right:=w}
+
+
 -- lets assume M1.Q ∩ M2.Q = ∅ 
 -- then use gödel numbering for states 
 def prodTm (M1 M2 : Machine) : Machine :=
@@ -169,9 +173,8 @@ def isFinal (M  : Machine) (cfg : Cfg) : Prop :=
 
 def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
   match n with
-  | Nat.zero => cfgEquiv c1 c2
+  | 0 => cfgEquiv c1 c2
   | Nat.succ m => ∃ (c : Cfg), (reachN M m c1 c ∧ reachSucc M c c2)
-
 
 def finiteReach (M : Machine) (c1 c2 : Cfg) : Prop :=
   ∃ (n : ℕ), reachN M n c1 c2
@@ -195,10 +198,10 @@ theorem reach2IfReachSuccSucc (M : Machine) (c1 c2 c3 : Cfg) : reachSucc M c1 c2
 
 
 def mAcceptsW (M : Machine) (w : Word) : Prop :=
-  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isAccept M c2 ∧ isFinal M c2
+  ∃ (c1 c2 : Cfg), c1 = startCfg M w ∧ finiteReach M c1 c2 ∧ isAccept M c2 ∧ isFinal M c2
 
 def mRejectsW (M : Machine) (w : Word) : Prop :=
-  ∃ (c1 c2 : Cfg), c1 = {state := 0, head := 0, left := List.nil, right := w} ∧ finiteReach M c1 c2 ∧ isReject M c2 ∧ isFinal M c2
+  ∃ (c1 c2 : Cfg), c1 = startCfg M w ∧ finiteReach M c1 c2 ∧ isReject M c2 ∧ isFinal M c2
  
 def languageOfMachine (M : Machine)  : Language := 
   { w | mAcceptsW M w}
@@ -236,12 +239,16 @@ theorem reachNPlusOne (M : Machine) (c1 c3 : Cfg) (n : ℕ) : (∃ (c : Cfg), (r
   rw [reachN] at h
   exact h
 
+lemma natSucc (m n : ℕ) : (Nat.succ m + n) = (Nat.succ (m + n)) := by
+  simp_arith
 
-theorem addCompPathLen2 (M : Machine) (c1 c2 c3 : Cfg) (n m : ℕ) :  (∃ c2, (reachN M n c1 c2 ∧ reachN M m c2 c3)) ↔ reachN M (n+m) c1 c3 := by 
-  constructor
+lemma natSucc2 (m n : ℕ) : (n + Nat.succ m) = (Nat.succ (n + m)) := by
+  simp_arith
+
+theorem addCompPathLen2 (M : Machine) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M m c1 c2 ∧ reachN M n c2 c3)) → reachN M (m + n) c1 c3 := by 
   intro h
   rcases h with ⟨c, hl, hr⟩
-  induction m with 
+  induction n generalizing c3 with
     | zero =>
       simp
       rw [reachN] at hr
@@ -249,19 +256,54 @@ theorem addCompPathLen2 (M : Machine) (c1 c2 c3 : Cfg) (n m : ℕ) :  (∃ c2, (
       rw [← hr]
       exact hl
     | succ m ih =>
-      induction n with 
-        | zero =>
-          simp 
-          rw [reachN] at hl
-          rw [cfgEquivIffEq] at hl
-          rw [hl]
-          exact hr
-        | succ n jh =>
-          rw [← addCompPathLen2]
-          use c
-          exact ⟨hl, hr⟩
-          exact c
-      
+      rw [natSucc2, reachN]
+      rcases hr with ⟨c4, hr1, hr2⟩
+      use c4
+      specialize ih c4
+      constructor
+      apply ih
+      exact hr1
+      exact hr2
+
+
+theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M n c1 c2 ∧ reachN M m c2 c3)) ↔ reachN M (n + m) c1 c3 := by 
+  constructor
+  intro h
+  rcases h with ⟨c, hl, hr⟩
+  induction m generalizing c3 with
+    | zero =>
+      simp
+      rw [reachN] at hr
+      rw [cfgEquivIffEq] at hr
+      rw [← hr]
+      exact hl
+    | succ m ih =>
+      rw [natSucc2, reachN]
+      rcases hr with ⟨c4, hr1, hr2⟩
+      use c4
+      specialize ih c4
+      constructor
+      apply ih
+      exact hr1
+      exact hr2
+  
+  induction n with
+    | zero =>
+      simp
+      intro h
+      use c1
+      rw [reachN, cfgEquivIffEq]
+      constructor
+      rfl
+      exact h
+    | succ n ih => 
+      intro h
+      rw [natSucc, reachN] at h
+      rcases h with ⟨c4, hl, hr⟩
+      use c2
+      sorry
+
+
 theorem transFiniteReach (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
   intro ⟨hl, hr⟩
   rcases hl with ⟨nl, hl⟩

@@ -94,7 +94,7 @@ theorem mReachSuccIffCoMreachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c
 
 theorem mReachNIffCoMReachN (M : Machine) (c1 c2 : Cfg) (n : ℕ) : reachN M n c1 c2 ↔ reachN (coTm M) n c1 c2 := by
   constructor
-  induction n with 
+  induction n generalizing c2 with 
     | zero =>
       intro h
       assumption
@@ -102,20 +102,22 @@ theorem mReachNIffCoMReachN (M : Machine) (c1 c2 : Cfg) (n : ℕ) : reachN M n c
       intro h
       rcases h with ⟨c, hl, hr⟩
       use c
+      specialize ih c
       constructor
-      rw [← mReachNIffCoMReachN]
+      apply ih
       exact hl
       rw [← mReachSuccIffCoMReachSucc]
       exact hr
   intro h
-  induction n with 
+  induction n generalizing c2 with 
     | zero =>
       assumption
     | succ n ih =>
       rcases h with ⟨c, hl, hr⟩
       use c
+      specialize ih c
       constructor
-      rw [mReachNIffCoMReachN]
+      apply ih
       exact hl
       rw [mReachSuccIffCoMReachSucc]
       exact hr
