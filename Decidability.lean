@@ -144,8 +144,31 @@ theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecid
   intro w
   specialize hl w
   specialize hr w
+  rcases hl with ⟨hl1, hl2⟩
+  rcases hr with ⟨hr1, hr2⟩ 
   constructor
-  repeat sorry
+  constructor
+  intro wi
+  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
+  constructor
+  exact hl1 wi
+  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
+  intro h
+  rcases h with hl | hr
+  exact hl2 hl
+  -- coM = coTm M problem
+  sorry
+  constructor
+  intro wo
+  rw [← m1AndM2RejectsWIffProdMRejectsW]
+  constructor
+  sorry
+  rw [← m1AndM2RejectsWIffProdMRejectsW]
+  intro h
+  rcases h with hl | hr
+  -- mRejectsW M w = mAcceptsW coM w
+  sorry
+  sorry
 
 
 theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidable L ∧ coSemiDecidable L) := by
@@ -174,7 +197,8 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   specialize hr w
   constructor
   exact hl
-  sorry
+  rw [← wInLAcceptsIffNotWInLRejects]
+  exact hl
 
 
 

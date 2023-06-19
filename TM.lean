@@ -346,22 +346,28 @@ theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (r
       exact hr1
       exact hr2
   
-  induction n with
+  induction m generalizing c3 with
     | zero =>
       simp
       intro h
-      use c1
+      use c3
       rw [reachN, cfgEquivIffEq]
       constructor
-      rfl
       exact h
-    | succ n ih => 
+      rfl
+    | succ m ih => 
       intro h
-      rw [natSucc, reachN] at h
+      rw [natSucc2, reachN] at h
       rcases h with ⟨c4, hl, hr⟩
-      use c2
-      sorry
-
+      specialize ih c4
+      specialize ih hl
+      rcases ih with ⟨c5, ih1, ih2⟩
+      use c5
+      constructor
+      exact ih1
+      rw [reachN]
+      use c4
+      exact ⟨ih2, hr⟩
 
 theorem transFiniteReach (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
   intro ⟨hl, hr⟩
