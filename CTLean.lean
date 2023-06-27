@@ -28,7 +28,7 @@ def TmL2 : Machine := {Q:= Finset.range 7, Λ:= Finset.range 3, Γ:= Finset.rang
                         else if (q%2 == 1 ∧ γ == 1 ∧ q<5) then (q+1, γ, Direction.R)
                         else (5, γ, Direction.N))}
 
-                           
+#eval (prodM TmL1 TmL2).Q
 
 def startTmL1 := startCfg TmL1 [1,1,1]
 

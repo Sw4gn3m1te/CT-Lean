@@ -30,7 +30,6 @@ def semiDecidable (L : Language) : Prop :=
 def coSemiDecidable (L : Language) : Prop :=
   ∃ (M : Machine), ∀ (w : Word), (w ∈ L ↔ mRejectsW M w)
 
--- use iff ?
 def decidable (L : Language) : Prop := 
   ∃ (M : Machine), ∀ (w : Word), (w ∈ L ↔ mAcceptsW M w) ∧ (w ∉ L ↔ mRejectsW M w)
 
@@ -109,7 +108,7 @@ theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecid
   rcases h with ⟨hl ,hr⟩
   constructor
   intro wo
-  rw [wNotInLMRejectsWIffWInLCoMRejectsW] at hl
+  rw [wInLMRejectsIffWNotInLCoMRejects] at hl
   rw [mAcceptsWIffCoMRejectsW]
   exact hl wo
   intro h
@@ -201,9 +200,12 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   exact hl
 
 
+def f (m n : ℕ) : ℕ :=
+  sorry
 
-
-
+def g (n : ℕ) : Option ℕ :=
+  if f n n = 0 then some 0
+  else none
   
   
 

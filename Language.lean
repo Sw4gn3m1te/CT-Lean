@@ -3,8 +3,6 @@ import Mathlib.Data.Set.List
 import Mathlib.Data.List.Basic
 
 
-
-
 @[reducible]
 def Word := List ℕ
 
@@ -17,3 +15,14 @@ def Word.len (w: Word) : ℕ :=
 
 @[reducible]
 def Language := Set Word
+
+
+theorem exLContainingW (w : Word) : ∃ (L : Language), w ∈ L := by
+  tauto
+
+theorem exLNotContainingW (w : Word) : ∃ (L : Language), w ∉ L := by
+  use {}
+  simp
+
+theorem wInLOrWNotInL (w : Word) (L : Language) : w ∈ L ∨ w ∉ L := by 
+  tauto
