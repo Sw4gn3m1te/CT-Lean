@@ -95,10 +95,12 @@ theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecid
   rw [wInLMAcceptsIffWNotInLCoMAccepts] at hl
   rw [← mRejectsWIffCoMAcceptsW] at hl
   exact hl wo
+  sorry -- lang of M 
   intro h
   rw [mAcceptsWInLIffCoMAcceptsWNotInL] at hr
   rw [← mRejectsWIffCoMAcceptsW] at hr
   exact hr h
+  sorry
   intro ⟨M, h⟩
   rw [semiDecidable]
   use M
@@ -111,10 +113,12 @@ theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecid
   rw [wInLMRejectsIffWNotInLCoMRejects] at hl
   rw [mAcceptsWIffCoMRejectsW]
   exact hl wo
+  sorry 
   intro h
   rw [mRejectsWInLIffCoMRejectsWNotInL] at hr
   rw [mAcceptsWIffCoMRejectsW] at h
   exact hr h
+  sorry
   
 theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecidable L ∧ semiDecidable (Lᶜ)) := by
   constructor
@@ -198,6 +202,7 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   exact hl
   rw [← wInLAcceptsIffNotWInLRejects]
   exact hl
+  sorry
 
 
 def f (m n : ℕ) : ℕ :=

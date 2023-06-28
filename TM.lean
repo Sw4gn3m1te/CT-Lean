@@ -5,6 +5,8 @@ import Mathlib.Data.Prod.Basic
 import Mathlib.Data.List.Basic
 import Mathlib.Data.Nat.Basic
 import Mathlib.Algebra.Order.Floor
+import Mathlib.Data.Nat.Factors
+
 
 import Language
 
@@ -47,8 +49,8 @@ structure Machine where
   q0 : ℕ 
   δ : ℕ × ℕ → ℕ × ℕ × Direction
 
-  --FInQ:
-  --  ∀ q : ℕ, q ∈ F → q ∈ Q
+  FInQ:
+    F ⊆ Q
   
 
 structure Dtm  extends Machine where
@@ -81,18 +83,17 @@ structure KTapeMachine where
 --  {Q := kM.Q, Λ := kM.Λ, Γ := kM.Γ ∪ {max kM.Γ+1}, F := kM.F, q0 := kM.q0, δ:=kM.δ}
 
 def logNBaseB (n b : ℕ) : ℕ :=
-  (Nat.log2 n) / (Nat.log2 b)
+  ((Float.log2 n.toFloat) / (Float.log2 b.toFloat)).toUInt64.toNat
 
 def goedelize (m n : ℕ) : ℕ :=
   2^m*3^n
 
-def deGoedelize (n : ℕ) : ℕ × ℕ :=
-  (Nat.floor (logNBaseB n 2), Nat.floor (logNBaseB n 3))
+def deGoedelize (n : ℕ) : ℕ × ℕ := 
+  (List.count 2 (Nat.factors n), List.count 3 (Nat.factors n))
 
-#eval logNBaseB 54 3
-#eval goedelize 5 5
-#eval (deGoedelize (goedelize 5 5))
- 
+#eval goedelize 5 12
+#eval (deGoedelize (goedelize 5 12))
+
 structure ProdMachine where
   Q : Finset (ℕ × ℕ)
   Λ : Finset ℕ 
@@ -106,23 +107,23 @@ def prodMachineFromM1M2 (M1 M2 : Machine) : ProdMachine :=
    δ:= fun (q, γ) => (M1.δ (q.fst, γ), M2.δ (q.snd, γ))}
 
 
-
 def prodM (M1 M2 : Machine) : Machine :=
   {Q := (Finset.product M1.Q M2.Q).image (fun n : ℕ × ℕ => goedelize n.fst n.snd), Λ := M1.Λ ∪ M2.Λ, Γ := M1.Γ ∪ M2.Γ,
    F := (Finset.product (M1.F ∪ M2.F) (M1.F ∪ M2.F)).image (fun n : ℕ × ℕ => goedelize n.fst n.snd) , q0 := goedelize M1.q0 M2.q0,
-   δ := fun (q, γ) => (goedelize ((M1.δ ((deGoedelize q).fst, γ)).fst) ((M2.δ ((deGoedelize q).snd, γ)).fst), γ, Direction.N)}
+   δ := fun (q, γ) => (goedelize ((M1.δ ((deGoedelize q).fst, γ)).fst) ((M2.δ ((deGoedelize q).snd, γ)).fst), γ, Direction.N),
+   FInQ := by sorry}
 
 
 def coTm (M : Machine) : Machine :=
-  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ}
+  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ, FInQ:= by simp}
 
 
+-- basicly same proof as for theorem whatever (A B : Finset ℕ) (h: B ⊆ A) : A \ B = A \ (A \ B) := by ...
 theorem mEqCoCoM (M : Machine) : M = coTm (coTm M) := by
   repeat rw [coTm]
   simp
-  
-  -- needs FInQ 
   sorry
+
 
 def cfgEquiv (c1 c2 : Cfg) : Prop :=
   c1.state = c2.state ∧ c1.head = c2.head ∧ c1.left = c2.left ∧ c1.right = c2.right
@@ -462,7 +463,7 @@ theorem mFiniteReachIffCoMFiniteReach (M : Machine) (c1 c2 : Cfg) : finiteReach 
   use n
   exact h
 
-theorem mAcceptsCIffCoMRejectsC (M : Machine) (c : Cfg) : isAccept M c ↔ isReject (coTm M) c := by 
+theorem mAcceptsCIffCoMRejectsC (M : Machine) (c : Cfg) : isAccept M c ↔ isReject (coTm M) c := by
   rw [isAccept, isReject, coTm]
   simp
   intro h
@@ -516,12 +517,16 @@ theorem mRejectsWIffCoMAcceptsW (M : Machine) (w : Word) : mRejectsW M w ↔ mAc
   rw [← mEqCoCoM] at h
   exact h
 
+
 theorem languageOfMachineMEqLangaugeOfCoMCompl (M : Machine) : languageOfMachine M = (languageOfMachine (coTm M))ᶜ := by
   sorry
+  
 
-axiom m1OrM2AcceptsWIffProdMAcceptsW (M1 M2 : Machine) (w : Word) : (mAcceptsW M1 w ∨ mAcceptsW M2 w) ↔ mAcceptsW (prodM M1 M2) w
+theorem m1OrM2AcceptsWIffProdMAcceptsW (M1 M2 : Machine) (w : Word) : (mAcceptsW M1 w ∨ mAcceptsW M2 w) ↔ mAcceptsW (prodM M1 M2) w :=
+  sorry
 
-axiom m1AndM2RejectsWIffProdMRejectsW (M1 M2 : Machine) (w : Word) : (mRejectsW M1 w ∨ mRejectsW M2 w) ↔ mRejectsW (prodM M1 M2) w
+theorem m1AndM2RejectsWIffProdMRejectsW (M1 M2 : Machine) (w : Word) : (mRejectsW M1 w ∨ mRejectsW M2 w) ↔ mRejectsW (prodM M1 M2) w :=
+  sorry
 
 theorem prodMAcceptsIfM1Accepts (M1 M2 : Machine) (w : Word) : mAcceptsW M1 w → mAcceptsW (prodM M1 M2) w := by
   intro h
@@ -552,10 +557,11 @@ theorem help2 (M : Machine) (w : Word) (c : Cfg) (L : Language) (h : L = languag
   sorry
 
 
-theorem mHaltsOnWIffMAcceptsWOrMRejectsW (M : Machine) (L : Language) (w : Word) : mHaltsOnW M w ↔ (mAcceptsW M w ∨ mRejectsW M w) := by
+theorem mHaltsOnWIffMAcceptsWOrMRejectsW (M : Machine) (w : Word) : mHaltsOnW M w ↔ (mAcceptsW M w ∨ mRejectsW M w) := by
   constructor
   intro h
   rcases h with ⟨c, h1, h2⟩
+  have L := languageOfMachine M
   have v : w∈L ∨ w∉L := sorry -- how to use theorem wInLOrWNotInL ?
   rcases v with wi | wo
   left
@@ -584,16 +590,51 @@ theorem mHaltsOnWIffMAcceptsWOrMRejectsW (M : Machine) (L : Language) (w : Word)
   use c2
   exact ⟨hr1, hr3⟩
 
+theorem mHaltsOnWIfMAcceptsW (M : Machine) (w : Word) : mAcceptsW M w → mHaltsOnW M w := by
+  rw [mAcceptsW]
+  rintro ⟨c, h⟩
+  use c
+  exact ⟨h.1, h.2.2⟩
 
--- is this even true ?
+theorem mHaltsOnWIfMRejectsW (M : Machine) (w : Word) : mRejectsW M w → mHaltsOnW M w := by
+  rw [mRejectsW]
+  rintro ⟨c, h⟩
+  use c
+  exact ⟨h.1, h.2.2⟩
+
+theorem isAcceptIffIsNotReject (M : Machine) (c : Cfg) (h0 : c.state ∈ M.Q)  : isAccept M c ↔ ¬ isReject M c := by
+  constructor
+  intro h
+  rw [isReject]
+  simp
+  rw [isAccept] at h
+  tauto
+  intro h
+  rw [isAccept]
+  simp
+  rw [isReject] at h
+  tauto
+
+theorem isRejectIfIsNotAccept (M : Machine) (c : Cfg) (h0 : c.state ∈ M.Q) : ¬ isAccept M c → isReject M c := by
+  rw [isAcceptIffIsNotReject]
+  simp
+  tauto
+
 theorem mAcceptsWInLanguageOfMachine (M : Machine) (w : Word) : w ∈ languageOfMachine M ↔ mAcceptsW M w := by
   tauto
 
+-- only for decider ?
 theorem mRejectsWNotInLanguageOfMachine (M : Machine) (w : Word) : w ∉ languageOfMachine M ↔ mRejectsW M w := by
+  constructor
+  sorry
+  rintro ⟨c, h1, h2, h3⟩
   sorry
 
 
-theorem wInLAcceptsIffNotWInLRejects (M: Machine) (L : Language) (w : Word) (h : L = languageOfMachine M)  : (w ∈ L ↔ mAcceptsW M w) ↔ (w ∉ L ↔ mRejectsW M w) := by
+
+
+
+theorem wInLAcceptsIffNotWInLRejects (M: Machine) (L : Language) (w : Word) (h : L = languageOfMachine M) : (w ∈ L ↔ mAcceptsW M w) ↔ (w ∉ L ↔ mRejectsW M w) := by
   constructor
   rintro ⟨hl, hr⟩
   constructor
@@ -684,6 +725,4 @@ theorem mRejectsWInLIffCoMRejectsWNotInL (M : Machine) (L : Language) (w : Word)
   rw [h]
   rw [mRejectsWNotInLanguageOfMachine]
   exact wi
-
-
 

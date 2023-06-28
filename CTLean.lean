@@ -20,13 +20,15 @@ def L2 : Language := {[1], [1,2], [1,1,1], [1,2,1,2], [1,1,1,1,1]}
 
 
 def TmL1 : Machine := {Q:= Finset.range 6, Λ:= Finset.range 2, Γ:= Finset.range 3, F:= {1,2,3,4}, q0:= 0,
-                       δ:= fun (q, γ) => (if (q<4 ∧ γ == 1) then (q + 1, 1, Direction.R) else (5, γ, Direction.N))}
+                       δ:= fun (q, γ) => (if (q<4 ∧ γ == 1) then (q + 1, 1, Direction.R) else (5, γ, Direction.N)),
+                       FInQ := by simp}
 
 
 def TmL2 : Machine := {Q:= Finset.range 7, Λ:= Finset.range 3, Γ:= Finset.range 4, F:= {1,2,3,4,5}, q0:= 0,
                        δ:= fun (q, γ) => (if (q%2 == 1 ∧ γ == 1 ∧ q<9) then (q+1, γ, Direction.R)
                         else if (q%2 == 1 ∧ γ == 1 ∧ q<5) then (q+1, γ, Direction.R)
-                        else (5, γ, Direction.N))}
+                        else (5, γ, Direction.N)),
+                        FInQ := by simp}
 
 #eval (prodM TmL1 TmL2).Q
 
@@ -53,10 +55,12 @@ def x := o5
 
 
 def TMExample : Machine := {Q:= Finset.range 3, Λ:= Finset.range 3, Γ:= Finset.range 3, F:= Finset.empty, q0:= 1,
-                            δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L)}
+                            δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L),
+                            FInQ := by simp}
 
 def TMExample2 : Machine := {Q:= Finset.range 4, Λ:= Finset.range 4, Γ:= Finset.range 4, F:= Finset.empty, q0:= 1,
-                             δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L)}
+                             δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L),
+                             FInQ := by simp}
 
 def v : Word := [1, 2, 3]
 def w : Word := [3, 4]
