@@ -6,7 +6,7 @@ import Mathlib.Data.List.Basic
 import Mathlib.Data.Nat.Basic
 import Mathlib.Algebra.Order.Floor
 import Mathlib.Data.Nat.Factors
-
+import Mathlib.Data.Finset.Card
 
 import Language
 
@@ -94,6 +94,15 @@ def deGoedelize (n : ℕ) : ℕ × ℕ :=
 #eval goedelize 5 12
 #eval (deGoedelize (goedelize 5 12))
 
+
+
+theorem goedelizePreservesSize (A : Finset ℕ) : (Finset.product A A).card = ((Finset.product A A).image (fun n : ℕ × ℕ => goedelize n.fst n.snd)).card := by
+  sorry
+
+theorem goedelProductPreservesSubset (A B : Finset ℕ) (h0 : A ⊆ B) : Finset.product A A ⊆ Finset.product B B ↔ (Finset.product A A).image (fun n : ℕ × ℕ => goedelize n.fst n.snd) ⊆ (Finset.product B B).image (fun n : ℕ × ℕ => goedelize n.fst n.snd) := by
+  sorry
+
+
 structure ProdMachine where
   Q : Finset (ℕ × ℕ)
   Λ : Finset ℕ 
@@ -109,7 +118,7 @@ def prodMachineFromM1M2 (M1 M2 : Machine) : ProdMachine :=
 
 def prodM (M1 M2 : Machine) : Machine :=
   {Q := (Finset.product M1.Q M2.Q).image (fun n : ℕ × ℕ => goedelize n.fst n.snd), Λ := M1.Λ ∪ M2.Λ, Γ := M1.Γ ∪ M2.Γ,
-   F := (Finset.product (M1.F ∪ M2.F) (M1.F ∪ M2.F)).image (fun n : ℕ × ℕ => goedelize n.fst n.snd) , q0 := goedelize M1.q0 M2.q0,
+   F := (Finset.product M1.F M2.F).image (fun n : ℕ × ℕ => goedelize n.fst n.snd) , q0 := goedelize M1.q0 M2.q0,
    δ := fun (q, γ) => (goedelize ((M1.δ ((deGoedelize q).fst, γ)).fst) ((M2.δ ((deGoedelize q).snd, γ)).fst), γ, Direction.N),
    FInQ := by sorry}
 
@@ -121,6 +130,7 @@ def coTm (M : Machine) : Machine :=
 -- basicly same proof as for theorem whatever (A B : Finset ℕ) (h: B ⊆ A) : A \ B = A \ (A \ B) := by ...
 theorem mEqCoCoM (M : Machine) : M = coTm (coTm M) := by
   repeat rw [coTm]
+  dsimp
   simp
   sorry
 

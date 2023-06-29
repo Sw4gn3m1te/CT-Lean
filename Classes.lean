@@ -31,9 +31,16 @@ def fEqωg (f : ℕ → ℕ) (g : ℝ → ℝ) : Prop :=
 def mIsBoundedByF (M : Machine) (f : ℕ → ℕ) : Prop :=
   ∀ (w : Word), ∃ (c1 c2 : Cfg), c1 = startCfg M w ∧ reachN M (f w.length) c1 c2 ∧ mHaltsOnW M w
 
-def mIsBoundedbyOg (M : Machine) (g : ℝ → ℝ) : Prop := 
+def mIsBoundedByOg (M : Machine) (g : ℝ → ℝ) : Prop := 
   ∃ (f : ℕ → ℕ), mIsBoundedByF M f ∧ fEqOg f g 
 
+def exOgBoundedTmForL (L : Language) (g : ℝ → ℝ) : Prop :=
+  ∃ (M : Machine), (mIsBoundedByOg M g ∧ L = languageOfMachine M)
 
-def DTime (g : ℝ → ℝ) : Set Language :=
-  { languageOfMachine M | ∀ (M : DTM), mIsBoundedbyOg M g}
+
+def NTime (g : ℝ → ℝ) : Set Language :=
+  { L | exOgBoundedTmForL L g}
+
+
+--def NP {p : Polynomial ℝ} : Set Language :=
+--  NTime (fun n => n^d | how ?)
