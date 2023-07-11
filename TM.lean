@@ -131,6 +131,9 @@ theorem mEqCoCoM (M : Machine) : M = coTm (coTm M) := by
   repeat rw [coTm]
   dsimp
   simp
+  obtain ⟨Q, Λ, Γ, F, q0, δ, fInQ⟩ := M 
+  simp
+  
   sorry
 
 
@@ -256,7 +259,8 @@ theorem langMNonEmptyIffMAcceptsAnyW (M : Machine) : (languageOfMachine M).Nonem
 
 theorem wInLIffWNotInCoL (L : Language) (w : Word) : w ∈ L ↔ w ∉ Lᶜ := by
   simp
-  
+
+
 
 -- if c2 can be reached from c1 then there ex a sequence cs of configs from c1 to c2 (maybe emtpy if c2 is succ of c1)
 theorem pathReachability (M : Machine) (c1 c2 : Cfg) : finiteReach M c1 c2 → (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) := by
@@ -524,16 +528,16 @@ theorem mRejectsWIffCoMAcceptsW (M : Machine) (w : Word) : mRejectsW M w ↔ mAc
   exact h
 
 
-theorem languageOfMachineMEqLangaugeOfCoMCompl (M : Machine) : languageOfMachine M = (languageOfMachine (coTm M))ᶜ := by
-  sorry
-
-theorem wInLangaugeOfMIffWNotInLanguageOfCoM (M : Machine) : w ∈ languageOfMachine M ↔ w ∉ languageOfMachine (coTm M) := by
-  sorry
-
 theorem m1OrM2AcceptsWIffProdMAcceptsW (M1 M2 : Machine) (w : Word) : (mAcceptsW M1 w ∨ mAcceptsW M2 w) ↔ mAcceptsW (prodM M1 M2) w :=
   sorry
 
-theorem m1AndM2RejectsWIffProdMRejectsW (M1 M2 : Machine) (w : Word) : (mRejectsW M1 w ∨ mRejectsW M2 w) ↔ mRejectsW (prodM M1 M2) w :=
+theorem notM1OrM2AcceptsWIffProdMAcceptsW (M1 M2 : Machine) (w : Word) : (¬ mAcceptsW M1 w ∧ ¬ mAcceptsW M2 w) ↔ ¬ mAcceptsW (prodM M1 M2) w :=
+  sorry
+
+theorem m1OrM2RejectsWIffProdMRejectsW (M1 M2 : Machine) (w : Word) : (mRejectsW M1 w ∨ mRejectsW M2 w) ↔ mRejectsW (prodM M1 M2) w :=
+  sorry
+
+theorem m1OrM2HaltsOnWIffProdMHaltsOnW (M1 M2 : Machine) (w : Word) : (mHaltsOnW M1 w ∨ mHaltsOnW M2 w) ↔ mHaltsOnW (prodM M1 M2) w := by
   sorry
 
 theorem prodMAcceptsIfM1Accepts (M1 M2 : Machine) (w : Word) : mAcceptsW M1 w → mAcceptsW (prodM M1 M2) w := by
@@ -548,14 +552,19 @@ theorem prodMAcceptsIfM2Accepts (M1 M2 : Machine) (w : Word) : mAcceptsW M2 w �
 
 theorem prodMRejectsIfM1Rejects (M1 M2 : Machine) (w : Word) : mRejectsW M1 w → mRejectsW (prodM M1 M2) w := by
   intro h
-  rw [← m1AndM2RejectsWIffProdMRejectsW]
+  rw [← m1OrM2RejectsWIffProdMRejectsW]
   tauto
 
 theorem prodMRejectsIfM2Rejects (M1 M2 : Machine) (w : Word) : mRejectsW M2 w → mRejectsW (prodM M1 M2) w := by
   intro h
-  rw [← m1AndM2RejectsWIffProdMRejectsW]
+  rw [← m1OrM2RejectsWIffProdMRejectsW]
   tauto
 
+
+
+
+-- mAcceptsW (prodM M CoM) w ↔ mAcceptsW M w
+-- mRejectsW (prodM M CoM) w ↔ mRejectsW CoM w
 
 theorem help2 (M : Machine) (w : Word) (c : Cfg) (L : Language) (h : L = languageOfMachine M) : finiteReach M (startCfg M w) c ∧ isFinal M c ∧ w ∈ L → isAccept M c := by
   rintro ⟨h1, h2, h3⟩
@@ -638,8 +647,24 @@ theorem mAcceptsWIffNotMRejectsWAndMHaltsOnW (M : Machine) (w : Word) : mAccepts
   by_contra f
   rcases f with ⟨c1, f⟩
   rcases h with ⟨c2, h⟩
-  repeat sorry -- how ?
-  
+
+  sorry
+  rw [mHaltsOnWIffMAcceptsWOrMRejectsW]
+  left
+  exact h
+  rintro ⟨hl, hr⟩
+  rw [mHaltsOnWIffMAcceptsWOrMRejectsW] at hr
+  rcases hr with hr1 | hr2
+  exact hr1
+  by_contra f
+  rw [mRejectsW] at hr2
+  rcases hr2 with ⟨c, hr2⟩
+  rw [mRejectsW] at hl
+  simp at hl
+  specialize hl c
+  have g := hl hr2.1 hr2.2.1
+  exact g hr2.2.2
+
 
 theorem notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW (M : Machine) (w : Word) : (¬ mAcceptsW M w ∧ ¬ mRejectsW M w) ↔ ¬ mHaltsOnW M w := by
   constructor
@@ -654,9 +679,7 @@ theorem notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW (M : Machine) (w : Word) : (�
   simp at hr
   specialize hr c
   intro h
-  apply hr
-  exact h
-  have g := hr h
+  apply hl h
   sorry
   rw [mHaltsOnW]
   simp
@@ -682,11 +705,11 @@ theorem notMAcceptsWIffMRejectsWOrMHaltsOnW (M : Machine) (w : Word) : ¬ mAccep
   constructor
   intro h
   by_contra f
-  have g : ¬ mRejectsW M w ∧ mHaltsOnW M w := sorry -- by simp from f
-  rcases g with ⟨g1, g2⟩
-  have g3 : ¬mAcceptsW M w ∧ ¬mRejectsW M w := sorry -- g1 and h
-  rw [notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW] at g3
-  exact g3 g2
+  push_neg at f
+  rcases f with ⟨f1, f2⟩
+  have f3 : ¬mAcceptsW M w ∧ ¬mRejectsW M w := ⟨h, f1⟩
+  rw [notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW] at f3
+  exact f3 f2
   intro h
   rcases h with hl | hr
   by_contra f
@@ -717,10 +740,13 @@ theorem notMRejectsWIffMAcceptsWOrMHaltsOnW (M : Machine) (w : Word) : ¬ mRejec
   constructor
   intro h
   by_contra f
-  have g : ¬ mAcceptsW M w ∧ mHaltsOnW M w := sorry -- by simp from f
-  rcases g with ⟨g1, g2⟩
-  have g3 : ¬ mHaltsOnW M w := sorry -- from (g1 and h) using notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW 
-  exact g3 g2
+  push_neg at f
+  rcases f with ⟨f1, f2⟩
+  have f3 : ¬ mHaltsOnW M w
+  have g := notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW M w
+  rw [← g]
+  exact ⟨f1, h⟩
+  exact f3 f2
   intro h
   rcases h with hl | hr
   by_contra f
@@ -782,22 +808,59 @@ theorem mRejectsWNotInLanguageOfMachine (M : Machine) (w : Word) : w ∉ languag
   constructor
   intro h
   by_contra f
-  have g : ¬ mRejectsW M w ∧ mHaltsOnW M w := sorry
-  rcases g with ⟨g1, g2⟩
-  rw [notMRejectsWIffMAcceptsWOrMHaltsOnW] at g1
-  have g3 : mAcceptsW M w ∨ ¬mHaltsOnW M w ∧ mHaltsOnW M w := sorry
-  simp at g3
+  push_neg at f
+  rcases f with ⟨f1, f2⟩
+  rw [notMRejectsWIffMAcceptsWOrMHaltsOnW] at f1
+  have g : (mAcceptsW M w ∨ ¬mHaltsOnW M w) ∧ mHaltsOnW M w := ⟨f1, f2⟩ 
+  have g2 : mAcceptsW M w  ∧ mHaltsOnW M w
+  constructor
+  rcases f1 with fl | fr
+  exact fl
+  contradiction
+  exact f2
   rw [wNotInLanguageOfMachineIffNotMAcceptsW] at h
-  exact h g3
+  exact h g2.1
   intro h
   by_contra f
   rw [wInLangaugeOfMachineIffMAcceptsW] at f
+  rcases h with hl | hr
+  rw [mRejectsWIffNotMAcceptsWAndMHaltsOnW] at hl
+  exact hl.1 f
+  rw [mAcceptsWIffNotMRejectsWAndMHaltsOnW] at f
+  exact hr f.2
+
+-- is this even true ?
+theorem languageOfMachineMEqLangaugeOfCoMCompl (M : Machine)  : languageOfMachine M = (languageOfMachine (coTm M))ᶜ := by
+  ext w
+  repeat rw [languageOfMachine]
+  simp
+  constructor
+  intro h2
+  rw [← mRejectsWIffCoMAcceptsW]
+  rw [notMRejectsWIffMAcceptsWOrMHaltsOnW]
+  left
+  exact h2
+  intro h2
+  rw [notMAcceptsWIffMRejectsWOrMHaltsOnW]at h2
+  rcases h2 with hl | hr
+  rw [← mAcceptsWIffCoMRejectsW] at hl
+  exact hl
   sorry
 
 
-
-  
-theorem wInLAcceptsIffNotWInLRejectsR (M: Machine) (L : Language) (w : Word) (h : L = languageOfMachine M) : (w ∈ L → mAcceptsW M w) ↔ (w ∉ L → mRejectsW M w) := by
+-- unprovable for the same reason as the theorem above
+theorem wInLangaugeOfMIffWNotInLanguageOfCoM (M : Machine) : w ∈ languageOfMachine M ↔ w ∉ languageOfMachine (coTm M) := by
+  repeat rw [languageOfMachine]
+  simp
+  constructor
+  intro h
+  rw [← mRejectsWIffCoMAcceptsW]
+  rw [notMRejectsWIffMAcceptsWOrMHaltsOnW]
+  left
+  exact h
+  intro h
+  rw [← mRejectsWIffCoMAcceptsW] at h
+  rw [notMRejectsWIffMAcceptsWOrMHaltsOnW] at h
+  rcases h with hl | hr 
+  exact hl
   sorry
-
-

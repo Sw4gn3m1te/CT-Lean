@@ -81,6 +81,25 @@ theorem decidableLIffdecidableCoL (L : Language) : decidable L ↔ decidable (L�
   exact hl
 
 
+-- is this realy only true for decidable L's ?
+theorem langSemiIffCoLangCoSemi2 (L : Language) (h : decidable L) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
+  rcases h with ⟨dM, h⟩
+  constructor
+  intro ⟨M, h2⟩
+  use dM
+  intro w
+  specialize h w
+  specialize h2 w
+  simp
+  exact h.2
+  intro ⟨M, h2⟩
+  use dM
+  intro w
+  specialize h w
+  specialize h2 w
+  exact h.1
+
+
 theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
   constructor
   intro ⟨M, h⟩
@@ -88,14 +107,14 @@ theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecid
   use M
   intro w
   specialize h w
-  simp
+  simp 
   constructor
   intro wo
   have h2 : ¬ mAcceptsW M w := sorry -- wo at h 
   rw [notMAcceptsWIffMRejectsWOrMHaltsOnW] at h2
   rcases h2 with hl | hr
   exact hl
-  sorry -- impossible (but its an or how do i exclude this case ?)
+  sorry -- impossible
   intro h1
   sorry
   intro ⟨M, h⟩
@@ -110,7 +129,7 @@ theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecid
   rw [notMRejectsWIffMAcceptsWOrMHaltsOnW] at h2
   rcases h2 with hl | hr
   exact hl
-  sorry -- impossible (but its an or how do i exclude this case ?)
+  sorry -- impossible
   intro h1
   sorry
   
@@ -133,8 +152,8 @@ theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecid
   rw [mAcceptsWIffCoMRejectsW]
   rw [← mEqCoCoM]
   exact hr
+
   intro ⟨hl, hr⟩
-  rw [decidable]
   rcases hl with ⟨M, hl⟩
   rcases hr with ⟨coM, hr⟩
   use (prodM M coM)
@@ -142,31 +161,37 @@ theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecid
   specialize hl w
   specialize hr w
   rcases hl with ⟨hl1, hl2⟩
-  rcases hr with ⟨hr1, hr2⟩ 
+  rcases hr with ⟨hr1, hr2⟩
+  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
   constructor
   constructor
   intro wi
-  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
-  constructor
+  left
   exact hl1 wi
-  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
   intro h
-  rcases h with hl | hr
-  exact hl2 hl
-  -- coM = coTm M problem
-  sorry
-  constructor
-  intro wo
-  rw [← m1AndM2RejectsWIffProdMRejectsW]
-  constructor
-  sorry
-  rw [← m1AndM2RejectsWIffProdMRejectsW]
-  intro h
-  rcases h with hl | hr
-  -- mRejectsW M w = mAcceptsW coM w
-  sorry
-  sorry
+  rcases h with h1 | h2
+  apply hl2
+  exact h1
 
+  -- coM = coTm M problem
+  repeat sorry
+
+
+theorem winLIffMAcceptsWOrCoMRejectsW (M : Machine) (L : Language) (w : Word) (h : isDecider M L) : w ∈ L ↔ mAcceptsW M w ∨ mRejectsW (coTm M) w := by
+  rw [isDecider] at h
+  specialize h w
+  constructor 
+  intro wi
+  left
+  rw [h.1] at wi
+  exact wi
+  intro h2
+  rcases h2 with hl | hr
+  rw [← h.1] at hl 
+  exact hl
+  rw [← mAcceptsWIffCoMRejectsW] at hr
+  rw [← h.1] at hr
+  exact hr
 
 theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidable L ∧ coSemiDecidable L) := by
   constructor
@@ -195,16 +220,19 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   specialize hr w
   constructor
   rw [← m1OrM2AcceptsWIffProdMAcceptsW]
+
   constructor
   intro wi
   rw [hl] at wi
   left
   exact wi
+  have g1 : w ∉ L ↔ mRejectsW M w ∨ ¬ mHaltsOnW M w := sorry
+  have g2 : w ∉ L ↔ mAcceptsW coM w ∨ ¬ mHaltsOnW coM w := sorry
   intro h
   rcases h with h1 | h2
   rw [hl]
   exact h1
-  rw [hl]
+
   sorry
   sorry
   
@@ -232,58 +260,57 @@ theorem coTmAcceptsWNotInLIffMAcceptsWInL (M : Machine) (L : Language) (w : Word
   exact wi
   intro _ wo
   rw [h.2] at wo
-  
   simp
-  sorry
-
-
-theorem wInLMAcceptsIffWNotInLCoMAccepts (M : Machine) (L : Language) (w : Word) (h : L = languageOfMachine M) : (w ∈ L → mAcceptsW M w) ↔ (w ∉ L → mAcceptsW (coTm M) w) := by
-  constructor
-  intro _ wo
-  rw [h] at wo
-  rw [mRejectsWNotInLanguageOfMachine] at wo
-  rw [← mRejectsWIffCoMAcceptsW]
-  sorry
-  intro _ wi
-  rw [h] at wi
-  rw [← wInLangaugeOfMachineIffMAcceptsW]
-  exact wi
-
-theorem mAcceptsWInLIffCoMAcceptsWNotInL (M : Machine) (L : Language) (w : Word) (h : L = languageOfMachine M) : (mAcceptsW M w → w ∈ L) ↔ (mAcceptsW (coTm M) w → w ∉ L) := by
-  constructor
-  intro _ wo
-  rw [h]
-  rw [mRejectsWNotInLanguageOfMachine]
-  rw [← mRejectsWIffCoMAcceptsW] at wo
-  sorry
-  intro _ wi
-  rw [h]
-  rw [← wInLangaugeOfMachineIffMAcceptsW] at wi
-  exact wi
-
-theorem wInLMRejectsIffWNotInLCoMRejects (M : Machine) (L : Language) (w : Word) (h : L = languageOfMachine M) : (w ∉ L → mRejectsW M w) ↔ (w ∈ L → mRejectsW (coTm M) w) := by
-  constructor
-  intro _ wo
-  rw [h] at wo
-  rw [mRejectsWIffCoMAcceptsW]
-  rw [← mEqCoCoM]
-  rw [← wInLangaugeOfMachineIffMAcceptsW]
-  exact wo
-  intro _ wi
-  rw [h] at wi
-  sorry
-  --rw [← mRejectsWNotInLanguageOfMachine]
-  --exact wi
-
-
-theorem mRejectsWInLIffCoMRejectsWNotInL (M : Machine) (L : Language) (w : Word) (h : L = languageOfMachine M) : (mRejectsW M w → w ∉ L) ↔ (mRejectsW (coTm M) w → w ∈ L) := by
-  constructor
-  intro _ wo
-  rw [h]
-  rw [← mAcceptsWIffCoMRejectsW] at wo
   rw [wInLangaugeOfMachineIffMAcceptsW]
+  rw [← mRejectsWIffCoMAcceptsW]
+  exact wo
+
+theorem wInLMAcceptsIffWNotInLCoMAccepts (M : Machine) (L : Language) (w : Word) (h : isDecider M L) : (w ∈ L → mAcceptsW M w) ↔ (w ∉ L → mAcceptsW (coTm M) w) := by
+  rw [isDecider] at h
+  specialize h w
+  constructor
+  intro _ wo
+  rw [← mRejectsWIffCoMAcceptsW]
+  rw [h.2] at wo
   exact wo
   intro _ wi
-  rw [h]
-  rw [mRejectsWNotInLanguageOfMachine]
-  sorry
+  rw [h.1] at wi
+  exact wi
+
+theorem mAcceptsWInLIffCoMAcceptsWNotInL (M : Machine) (L : Language) (w : Word) (h : isDecider M L) : (mAcceptsW M w → w ∈ L) ↔ (mAcceptsW (coTm M) w → w ∉ L) := by
+  rw [isDecider] at h
+  specialize h w
+  constructor
+  intro _ wo
+  rw [← mRejectsWIffCoMAcceptsW] at wo
+  rw [← h.2] at wo
+  exact wo
+  intro _ wi
+  rw [← h.1] at wi
+  exact wi
+
+theorem wInLMRejectsIffWNotInLCoMRejects (M : Machine) (L : Language) (w : Word) (h : isDecider M L) : (w ∉ L → mRejectsW M w) ↔ (w ∈ L → mRejectsW (coTm M) w) := by
+  rw [isDecider] at h
+  specialize h w
+  constructor
+  intro _ wi
+  rw [h.1] at wi
+  rw [← mAcceptsWIffCoMRejectsW]
+  exact wi
+  intro _ wo
+  rw [h.2] at wo
+  exact wo
+
+
+theorem mRejectsWInLIffCoMRejectsWNotInL (M : Machine) (L : Language) (w : Word) (h : isDecider M L) : (mRejectsW M w → w ∉ L) ↔ (mRejectsW (coTm M) w → w ∈ L) := by
+  rw [isDecider] at h
+  specialize h w
+  constructor
+  intro _ wi
+  rw [h.1]
+  rw [← mAcceptsWIffCoMRejectsW] at wi
+  exact wi
+  intro _ wo
+  rw [h.2]
+  exact wo
+
