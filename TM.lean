@@ -527,38 +527,24 @@ theorem mRejectsWIffCoMAcceptsW (M : Machine) (w : Word) : mRejectsW M w ↔ mAc
   exact h
 
 
-theorem m1OrM2AcceptsWIffProdMAcceptsW (M1 M2 : Machine) (w : Word) : (mAcceptsW M1 w ∨ mAcceptsW M2 w) ↔ mAcceptsW (prodM M1 M2) w :=
+theorem prodMAcceptsWIffM1OrM2AccpetsW (M1 M2 : Machine) (w : Word) : mAcceptsW (prodM M1 M2) w ↔ (mAcceptsW M1 w ∨ mAcceptsW M2 w) :=
   sorry
 
-theorem notM1OrM2AcceptsWIffProdMAcceptsW (M1 M2 : Machine) (w : Word) : (¬ mAcceptsW M1 w ∧ ¬ mAcceptsW M2 w) ↔ ¬ mAcceptsW (prodM M1 M2) w :=
+theorem prodMRejectsWIffM1AndM2RejectsW (M1 M2 : Machine) (w : Word) : mRejectsW (prodM M1 M2) w ↔ (mRejectsW M1 w ∧ mRejectsW M2 w) := by
   sorry
 
-theorem m1OrM2RejectsWIffProdMRejectsW (M1 M2 : Machine) (w : Word) : (mRejectsW M1 w ∨ mRejectsW M2 w) ↔ mRejectsW (prodM M1 M2) w :=
-  sorry
-
-theorem m1OrM2HaltsOnWIffProdMHaltsOnW (M1 M2 : Machine) (w : Word) : (mHaltsOnW M1 w ∨ mHaltsOnW M2 w) ↔ mHaltsOnW (prodM M1 M2) w := by
+theorem prodMHaltsOnWIffM1OrM2HaltsOnW (M1 M2 : Machine) (w : Word) : mHaltsOnW (prodM M1 M2) w ↔ (mHaltsOnW M1 w ∨ mHaltsOnW M2 w) := by
   sorry
 
 theorem prodMAcceptsIfM1Accepts (M1 M2 : Machine) (w : Word) : mAcceptsW M1 w → mAcceptsW (prodM M1 M2) w := by
   intro h
-  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
+  rw [prodMAcceptsWIffM1OrM2AccpetsW]
   tauto
 
 theorem prodMAcceptsIfM2Accepts (M1 M2 : Machine) (w : Word) : mAcceptsW M2 w → mAcceptsW (prodM M1 M2) w := by
   intro h
-  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
+  rw [prodMAcceptsWIffM1OrM2AccpetsW]
   tauto
-
-theorem prodMRejectsIfM1Rejects (M1 M2 : Machine) (w : Word) : mRejectsW M1 w → mRejectsW (prodM M1 M2) w := by
-  intro h
-  rw [← m1OrM2RejectsWIffProdMRejectsW]
-  tauto
-
-theorem prodMRejectsIfM2Rejects (M1 M2 : Machine) (w : Word) : mRejectsW M2 w → mRejectsW (prodM M1 M2) w := by
-  intro h
-  rw [← m1OrM2RejectsWIffProdMRejectsW]
-  tauto
-
 
 theorem mHaltsOnWIffMAcceptsWOrMRejectsW (M : Machine) (w : Word) : mHaltsOnW M w ↔ (mAcceptsW M w ∨ mRejectsW M w) := by
   constructor

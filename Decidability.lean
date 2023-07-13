@@ -82,7 +82,7 @@ theorem decidableLIffdecidableCoL (L : Language) : decidable L ↔ decidable (L�
 
 
 -- is this realy only true for decidable L's ?
-theorem langSemiIffCoLangCoSemi2 (L : Language) (h : decidable L) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
+theorem langSemiIffCoLangCoSemiDec (L : Language) (h : decidable L) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
   rcases h with ⟨dM, h⟩
   constructor
   intro ⟨M, h2⟩
@@ -162,19 +162,26 @@ theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecid
   specialize hr w
   rcases hl with ⟨hl1, hl2⟩
   rcases hr with ⟨hr1, hr2⟩
-  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
   constructor
-  constructor
+  rw [prodMAcceptsWIffM1OrM2AccpetsW]
+  constructor -- here is the problem
   intro wi
   left
   exact hl1 wi
   intro h
   rcases h with h1 | h2
-  apply hl2
+  apply hl2 
   exact h1
+  sorry -- impossible
+  rw [prodMRejectsWIffM1AndM2RejectsW]
+  constructor
+  intro wo
+  constructor
+  sorry -- mAcceptsW coM w ↔ mRejectsW M w
+  sorry -- impossible
+  intro ⟨h1, h2⟩
+  sorry -- from mRejectsW M w and hr2 (but also contradiction with h1 h2)
 
-  -- coM = coTm M problem
-  repeat sorry
 
 
 theorem winLIffMAcceptsWOrCoMRejectsW (M : Machine) (L : Language) (w : Word) (h : isDecider M L) : w ∈ L ↔ mAcceptsW M w ∨ mRejectsW (coTm M) w := by
@@ -219,7 +226,7 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   specialize hl w
   specialize hr w
   constructor
-  rw [← m1OrM2AcceptsWIffProdMAcceptsW]
+  rw [prodMAcceptsWIffM1OrM2AccpetsW]
 
   constructor
   intro wi
