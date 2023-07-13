@@ -232,7 +232,6 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   rcases h with h1 | h2
   rw [hl]
   exact h1
-
   sorry
   sorry
   
