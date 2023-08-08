@@ -28,8 +28,6 @@ def semiDecidable (L : Language) : Prop :=
   ∃ (M : Machine), ∀ (w : Word), (w ∈ L ↔ mAcceptsW M w)
 
 def coSemiDecidable (L : Language) : Prop :=
-  -- ∃ (M : Machine), ∀ (w : Word), (w ∈ L ↔ mRejectsW M w)
-  -- semiDecidable Lᶜ 
   ∃ (M : Machine), ∀ (w : Word), (w ∉ L ↔ mAcceptsW M w)
 
 def decidable (L : Language) : Prop := 
@@ -83,6 +81,25 @@ theorem decidableLIffdecidableCoL (L : Language) : decidable L ↔ decidable (L�
   exact hl
 
 
+-- is this realy only true for decidable L's ?
+theorem langSemiIffCoLangCoSemiDec (L : Language) (h : decidable L) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
+  rcases h with ⟨dM, h⟩
+  constructor
+  intro ⟨M, h2⟩
+  use dM
+  intro w
+  specialize h w
+  specialize h2 w
+  simp
+  exact h.1
+  intro ⟨M, h2⟩
+  use dM
+  intro w
+  specialize h w
+  specialize h2 w
+  exact h.1
+
+
 theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecidable (Lᶜ) := by
   constructor
   intro ⟨M, h⟩
@@ -93,18 +110,14 @@ theorem langSemiIffCoLangCoSemi (L : Language) : semiDecidable L ↔ coSemiDecid
   simp
   exact h
   intro ⟨M, h⟩
+  rw [semiDecidable]
   use M
   intro w
   specialize h w
   simp at h
   exact h
-
-theorem langCoSemiIffCoLangSemi (L : Language) : coSemiDecidable L ↔ semiDecidable (Lᶜ) := by
-  rw [langSemiIffCoLangCoSemi]
-  simp
-
-
-theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidable L ∧ coSemiDecidable L) := by
+  
+theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecidable L ∧ semiDecidable (Lᶜ)) := by
   constructor
   intro ⟨M, h⟩
   constructor
@@ -112,15 +125,18 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   use M
   intro w
   specialize h w
-  rcases h with ⟨hl, hr⟩ 
+  rcases h with ⟨hl, hr⟩
   exact hl
-  rw [coSemiDecidable]
+  rw [semiDecidable]
   use (coTm M)
   intro w
   specialize h w
+  simp
   rcases h with ⟨hl, hr⟩
-  rw [← mRejectsWIffCoMAcceptsW]
+  rw [mAcceptsWIffCoMRejectsW]
+  rw [← mEqCoCoM]
   exact hr
+
   intro ⟨hl, hr⟩
   rcases hl with ⟨M, hl⟩
   rcases hr with ⟨coM, hr⟩
@@ -129,26 +145,12 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   specialize hl w
   specialize hr w
   constructor
-  rw [prodMAcceptsWIffM1OrM2AccpetsW]
-  constructor
-  intro wi
-  rw [hl] at wi
-  left
-  exact wi
-  have g1 : w ∉ L ↔ mRejectsW M w ∨ ¬ mHaltsOnW M w := sorry
-  have g2 : w ∉ L ↔ mAcceptsW coM w ∨ ¬ mHaltsOnW coM w := sorry
-  intro h
-  rcases h with h1 | h2
-  rw [hl]
-  exact h1
-
-  sorry
-  sorry
-
-
-theorem decidableIffLAncCoLDecidable (L : Language) : decidable L ↔ (semiDecidable L ∧ semiDecidable (Lᶜ)) := by
-  rw [← langCoSemiIffCoLangSemi]
-  rw [← decidableIffSemiAndCoSemi]
+  have g : mAcceptsW (prodM M coM) w ↔ mAcceptsW M w := sorry
+  rw [g]
+  exact hl
+  have g : mRejectsW (prodM M coM) w ↔ mAcceptsW coM w := sorry
+  rw [g]
+  exact hr
 
 theorem winLIffMAcceptsWOrCoMRejectsW (M : Machine) (L : Language) (w : Word) (h : isDecider M L) : w ∈ L ↔ mAcceptsW M w ∨ mRejectsW (coTm M) w := by
   rw [isDecider] at h
@@ -165,6 +167,52 @@ theorem winLIffMAcceptsWOrCoMRejectsW (M : Machine) (L : Language) (w : Word) (h
   rw [← mAcceptsWIffCoMRejectsW] at hr
   rw [← h.1] at hr
   exact hr
+
+theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidable L ∧ coSemiDecidable L) := by
+  constructor
+  intro ⟨M, h⟩
+  constructor
+  rw [semiDecidable]
+  use M
+  intro w
+  specialize h w
+  rcases h with ⟨hl, hr⟩ 
+  exact hl
+  rw [coSemiDecidable]
+  use (coTm M)
+  intro w
+  specialize h w
+  rcases h with ⟨hl, hr⟩ 
+  rw [← mRejectsWIffCoMAcceptsW]
+  exact hr
+
+  intro ⟨hl, hr⟩
+  rcases hl with ⟨M, hl⟩
+  rcases hr with ⟨coM, hr⟩
+  use (prodM M coM)
+  intro w
+  specialize hl w
+  specialize hr w
+  constructor
+  rw [prodMAcceptsWIffM1OrM2AccpetsW]
+
+  constructor
+  intro wi
+  rw [hl] at wi
+  left
+  exact wi
+  have g1 : w ∉ L ↔ mRejectsW M w ∨ ¬ mHaltsOnW M w := sorry
+  have g2 : w ∉ L ↔ mAcceptsW coM w ∨ ¬ mHaltsOnW coM w := sorry
+  intro h
+  rcases h with h1 | h2
+  rw [hl]
+  exact h1
+
+  sorry
+
+  sorry
+  
+
 
 theorem wInLAcceptsIffNotWInLRejects (M: Machine) (L : Language) (w : Word) (h : isDecider M L) : (w ∈ L ↔ mAcceptsW M w) ↔ (w ∉ L ↔ mRejectsW M w) := by
   rw [isDecider] at h
