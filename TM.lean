@@ -7,6 +7,7 @@ import Mathlib.Data.Nat.Basic
 import Mathlib.Algebra.Order.Floor
 import Mathlib.Data.Nat.Factors
 import Mathlib.Data.Finset.Card
+import Mathlib.Tactic.LibrarySearch
 
 import Language
 
@@ -47,6 +48,7 @@ structure Machine where
   Γ : Finset ℕ 
   F : Finset ℕ
   q0 : ℕ 
+  -- Q × Γ → Q × Γ × Direction
   δ : ℕ × ℕ → ℕ × ℕ × Direction
 
   FInQ:
@@ -56,11 +58,10 @@ structure Machine where
 structure Dtm extends Machine where
 
   uniqueness:
-    ∀ x y : (ℕ × ℕ → ℕ × ℕ × Direction), 
-      ∀ (a b : (ℕ × ℕ)), a = b ↔ x a = y b
+    ∀ x y, (δ x = δ y ↔ x = y)
 
 
-def startCfg (M : Machine) (w : Word) : Cfg := 
+def startCfg (M : Dtm) (w : Word) : Cfg := 
   {state:=M.q0, head:=0, left:=List.nil, right:=w}
 
 
@@ -94,7 +95,6 @@ def deGoedelize (n : ℕ) : ℕ × ℕ :=
 #eval goedelize 5 12
 #eval (deGoedelize (goedelize 5 12))
 
-
 theorem goedelizePreservesSize (A : Finset ℕ) : (Finset.product A A).card = ((Finset.product A A).image (fun n : ℕ × ℕ => goedelize n.fst n.snd)).card := by
   sorry
 
@@ -115,23 +115,24 @@ def prodMachineFromM1M2 (M1 M2 : Machine) : ProdMachine :=
    δ:= fun (q, γ) => (M1.δ (q.fst, γ), M2.δ (q.snd, γ))}
 
 
-def prodM (M1 M2 : Machine) : Machine :=
+def prodM (M1 M2 : Dtm) : Dtm :=
   {Q := (Finset.product M1.Q M2.Q).image (fun n : ℕ × ℕ => goedelize n.fst n.snd), Λ := M1.Λ ∪ M2.Λ, Γ := M1.Γ ∪ M2.Γ,
    F := (Finset.product M1.F M2.F).image (fun n : ℕ × ℕ => goedelize n.fst n.snd) , q0 := goedelize M1.q0 M2.q0,
    δ := fun (q, γ) => (goedelize ((M1.δ ((deGoedelize q).fst, γ)).fst) ((M2.δ ((deGoedelize q).snd, γ)).fst), γ, Direction.N),
-   FInQ := by sorry}
+   FInQ := by sorry, uniqueness := by sorry}
 
 
-def coTm (M : Machine) : Machine :=
-  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ, FInQ:= by simp}
+def coTm (M : Dtm) : Dtm :=
+  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ, FInQ := by simp, uniqueness := M.uniqueness}
 
 
--- basicly same proof as for theorem whatever (A B : Finset ℕ) (h: B ⊆ A) : A \ B = A \ (A \ B) := by ...
-theorem mEqCoCoM (M : Machine) : M = coTm (coTm M) := by
+theorem mEqCoCoM (M : Dtm) : M = coTm (coTm M) := by
   repeat rw [coTm]
   dsimp
   simp
-  obtain ⟨Q, Λ, Γ, F, q0, δ, fInQ⟩ := M 
+  obtain ⟨Q, uniqueness⟩ := M
+  simp
+  obtain ⟨Q, Λ2, Γ, F, q0, δ, fInQ⟩ := Q
   simp
   ext q
   simp
@@ -204,59 +205,58 @@ def updateCfg (cfg: Cfg) (q γ : ℕ) (d: Direction) : Cfg :=
 --def reachSuccOld (M : Machine) (c1 c2 : Cfg) : Prop :=
 --  ∃ (a γ s w : ℕ) (d : Direction), M.δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
-def stepMOnC (M : Machine) (c : Cfg) : Cfg :=
+def stepMOnC (M : Dtm) (c : Cfg) : Cfg :=
   updateCfg c (M.δ (c.state, c.right.head!)).fst (M.δ (c.state, c.right.head!)).snd.fst (M.δ (c.state, c.right.head!)).snd.snd
 
 
-def reachSucc (M : Machine) (c1 c2 : Cfg) : Prop :=
+def reachSucc (M : Dtm) (c1 c2 : Cfg) : Prop :=
   ∃ (s w : ℕ) (d : Direction), M.δ (c1.state, c1.right.head!) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
-def isAccept (M : Machine) (cfg : Cfg)  : Prop :=
+def isAccept (M : Dtm) (cfg : Cfg)  : Prop :=
   cfg.state ∈ M.F ∧ cfg.state ∈ M.Q
 
-def isReject (M : Machine) (cfg : Cfg)  : Prop :=
+def isReject (M : Dtm) (cfg : Cfg)  : Prop :=
   cfg.state ∉ M.F ∧ cfg.state ∈ M.Q
 
 -- just stand still if term ?
-def isFinal (M  : Machine) (cfg : Cfg) : Prop :=
-  M.δ (cfg.state, cfg.right.head!) = (cfg.state, cfg.right.head!, Direction.N)
+def isFinal (M  : Dtm) (cfg : Cfg) : Prop :=
+  M.δ (cfg.state, cfg.right.head!) = (cfg.state, cfg.right.head!, Direction.N) ∧ cfg.state ∈ M.Q
 
 
-def reachN (M : Machine) (n : ℕ) (c1 c2 : Cfg) : Prop :=
+def reachN (M : Dtm) (n : ℕ) (c1 c2 : Cfg) : Prop :=
   match n with
   | 0 => cfgEquiv c1 c2
   | Nat.succ m => ∃ (c : Cfg), (reachN M m c1 c ∧ reachSucc M c c2)
 
-def finiteReach (M : Machine) (c1 c2 : Cfg) : Prop :=
+def finiteReach (M : Dtm) (c1 c2 : Cfg) : Prop :=
   ∃ (n : ℕ), reachN M n c1 c2
 
-def mHaltsOnW (M : Machine) (w : Word) : Prop :=
+def mHaltsOnW (M : Dtm) (w : Word) : Prop :=
   ∃ (c : Cfg), finiteReach M (startCfg M w) c ∧ isFinal M c
 
-def mAcceptsW (M : Machine) (w : Word) : Prop :=
+def mAcceptsW (M : Dtm) (w : Word) : Prop :=
   ∃ (c : Cfg), finiteReach M (startCfg M w) c ∧ isAccept M c ∧ isFinal M c
 
--- rejecting is incorrect defined
-def mRejectsW (M : Machine) (w : Word) : Prop :=
+def mRejectsW (M : Dtm) (w : Word) : Prop :=
  ¬ mAcceptsW M w ∧ mHaltsOnW M w
  -- ∀ (c:Cfg), (isFinal M c ∧ finiteReach M (startCfg M w) ∧ ) c → isReject M c 
 
  
-def languageOfMachine (M : Machine) : Language := 
+def languageOfMachine (M : Dtm) : Language := 
   { w | mAcceptsW M w}
 
 
-theorem startCfgTmEqstartCfgCoTm (M : Machine) : startCfg M = startCfg (coTm M) := by
+theorem startCfgTmEqstartCfgCoTm (M : Dtm) : startCfg M = startCfg (coTm M) := by
   tauto
 
-theorem isFinalMIffisFinalcoTm (M : Machine) (c : Cfg) : isFinal M c ↔ isFinal (coTm M) c := by
+theorem isFinalMIffisFinalcoTm (M : Dtm) (c : Cfg) : isFinal M c ↔ isFinal (coTm M) c := by
   tauto
 
-theorem noHaltingMachineExists (MHalt M : Machine) (w : Word) : ¬ ∃ (MHalt : Machine), (∀ M, mHaltsOnW M w) := by
+theorem noHaltingMachineExists (MHalt M : Dtm) (w : Word) : ¬ ∃ (MHalt : Dtm), (∀ M, mHaltsOnW M w) := by
   sorry
 
 
-theorem langMNonEmptyIffMAcceptsAnyW (M : Machine) : (languageOfMachine M).Nonempty ↔ ∃ (w : Word), mAcceptsW M w := by
+theorem langMNonEmptyIffMAcceptsAnyW (M : Dtm) : (languageOfMachine M).Nonempty ↔ ∃ (w : Word), mAcceptsW M w := by
   rw [Set.Nonempty]
   tauto
 
@@ -265,11 +265,11 @@ theorem wInLIffWNotInCoL (L : Language) (w : Word) : w ∈ L ↔ w ∉ Lᶜ := b
 
 
 -- if c2 can be reached from c1 then there ex a sequence cs of configs from c1 to c2 (maybe emtpy if c2 is succ of c1)
-theorem pathReachability (M : Machine) (c1 c2 : Cfg) : finiteReach M c1 c2 → (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) := by
+theorem pathReachability (M : Dtm) (c1 c2 : Cfg) : finiteReach M c1 c2 → (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) := by
   sorry
   
 
-theorem reach2IfReachSuccSucc (M : Machine) (c1 c2 c3 : Cfg) : reachSucc M c1 c2 ∧ reachSucc M c2 c3 → reachN M 2 c1 c3 := by
+theorem reach2IfReachSuccSucc (M : Dtm) (c1 c2 c3 : Cfg) : reachSucc M c1 c2 ∧ reachSucc M c2 c3 → reachN M 2 c1 c3 := by
   intro ⟨hr, a, γ, s, w, d, hl⟩
   rw [reachN]
   use c2
@@ -285,7 +285,7 @@ theorem reach2IfReachSuccSucc (M : Machine) (c1 c2 c3 : Cfg) : reachSucc M c1 c2
   use a, γ, s, w, d
   exact hl
 
-theorem finiteReachIffReachN (c1 c2 : Cfg) (M : Machine) : finiteReach M c1 c2 ↔ ∃ (n : ℕ), reachN M n c1 c2 := by
+theorem finiteReachIffReachN (c1 c2 : Cfg) (M : Dtm) : finiteReach M c1 c2 ↔ ∃ (n : ℕ), reachN M n c1 c2 := by
   constructor
   intro ⟨n , h⟩
   use n
@@ -296,14 +296,14 @@ theorem finiteReachIffReachN (c1 c2 : Cfg) (M : Machine) : finiteReach M c1 c2 �
   exact h
   
 
-theorem reach0EqCfgEquiv (M : Machine) (c1 c2 : Cfg) : reachN M 0 c1 c2 ↔ cfgEquiv c1 c2 := by
+theorem reach0EqCfgEquiv (M : Dtm) (c1 c2 : Cfg) : reachN M 0 c1 c2 ↔ cfgEquiv c1 c2 := by
   constructor
   rw [reachN]
   simp
   rw [reachN]
   simp
 
-theorem reachNPlusOne (M : Machine) (c1 c3 : Cfg) (n : ℕ) : (∃ (c : Cfg), (reachN M n c1 c ∧ reachSucc M c c3)) ↔ reachN M (Nat.succ n) c1 c3 := by
+theorem reachNPlusOne (M : Dtm) (c1 c3 : Cfg) (n : ℕ) : (∃ (c : Cfg), (reachN M n c1 c ∧ reachSucc M c c3)) ↔ reachN M (Nat.succ n) c1 c3 := by
   constructor
   intro h
   rw [reachN]
@@ -319,7 +319,7 @@ lemma natSucc2 (m n : ℕ) : (n + Nat.succ m) = (Nat.succ (n + m)) := by
   simp_arith
 
 
-theorem addCompPathLen2 (M : Machine) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M m c1 c2 ∧ reachN M n c2 c3)) → reachN M (m + n) c1 c3 := by 
+theorem addCompPathLen2 (M : Dtm) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M m c1 c2 ∧ reachN M n c2 c3)) → reachN M (m + n) c1 c3 := by 
   intro h
   rcases h with ⟨c, hl, hr⟩
   induction n generalizing c3 with
@@ -340,7 +340,7 @@ theorem addCompPathLen2 (M : Machine) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (
       exact hr2
 
 
-theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M n c1 c2 ∧ reachN M m c2 c3)) ↔ reachN M (n + m) c1 c3 := by 
+theorem addCompPathLen (M : Dtm) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M n c1 c2 ∧ reachN M m c2 c3)) ↔ reachN M (n + m) c1 c3 := by 
   constructor
   intro h
   rcases h with ⟨c, hl, hr⟩
@@ -384,7 +384,7 @@ theorem addCompPathLen (M : Machine) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (r
       use c4
       exact ⟨ih2, hr⟩
 
-theorem transFiniteReach (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
+theorem transFiniteReach (M : Dtm) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ finiteReach M c2 c3) → (finiteReach M c1 c3) := by
   intro ⟨hl, hr⟩
   rcases hl with ⟨nl, hl⟩
   rcases hr with ⟨nr, hr⟩
@@ -396,7 +396,7 @@ theorem transFiniteReach (M : Machine) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 �
   exact c2
 
 
-theorem qMFIffNotQCoMF (M : Machine) (c : Cfg) (q : ℕ) : q ∈ M.F ∧ q ∈ M.Q ↔ q ∉ (coTm M).F ∧ q ∈ (coTm M).Q := by
+theorem qMFIffNotQCoMF (M : Dtm) (q : ℕ) : q ∈ M.F ∧ q ∈ M.Q ↔ q ∉ (coTm M).F ∧ q ∈ (coTm M).Q := by
   rw [coTm]
   simp
   intro h
@@ -406,7 +406,7 @@ theorem qMFIffNotQCoMF (M : Machine) (c : Cfg) (q : ℕ) : q ∈ M.F ∧ q ∈ M
   intro h3
   apply h3 h
 
-theorem mReachSuccIffCoMReachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c2 ↔ reachSucc (coTm M) c1 c2 := by
+theorem mReachSuccIffCoMReachSucc (M : Dtm) (c1 c2 : Cfg) : reachSucc M c1 c2 ↔ reachSucc (coTm M) c1 c2 := by
   constructor
   intro ⟨s, w, d, hl, hr⟩
   use s, w, d
@@ -420,7 +420,7 @@ theorem mReachSuccIffCoMReachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c
   use s, w, d
   exact ⟨hl, hr⟩ 
   
-theorem mReachSuccIffCoMreachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c2 ↔ reachSucc (coTm M) c1 c2 := by
+theorem mReachSuccIffCoMreachSucc (M : Dtm) (c1 c2 : Cfg) : reachSucc M c1 c2 ↔ reachSucc (coTm M) c1 c2 := by
   constructor
   intro ⟨s, w, d, hl, hr⟩
   use s, w, d
@@ -431,7 +431,7 @@ theorem mReachSuccIffCoMreachSucc (M : Machine) (c1 c2 : Cfg) : reachSucc M c1 c
   simp_rw [coTm]
   exact ⟨hl, hr⟩
 
-theorem mReachNIffCoMReachN (M : Machine) (c1 c2 : Cfg) (n : ℕ) : reachN M n c1 c2 ↔ reachN (coTm M) n c1 c2 := by
+theorem mReachNIffCoMReachN (M : Dtm) (c1 c2 : Cfg) (n : ℕ) : reachN M n c1 c2 ↔ reachN (coTm M) n c1 c2 := by
   constructor
   induction n generalizing c2 with 
     | zero =>
@@ -461,7 +461,7 @@ theorem mReachNIffCoMReachN (M : Machine) (c1 c2 : Cfg) (n : ℕ) : reachN M n c
       rw [mReachSuccIffCoMReachSucc]
       exact hr
       
-theorem mFiniteReachIffCoMFiniteReach (M : Machine) (c1 c2 : Cfg) : finiteReach M c1 c2 ↔ finiteReach (coTm M) c1 c2 := by
+theorem mFiniteReachIffCoMFiniteReach (M : Dtm) (c1 c2 : Cfg) : finiteReach M c1 c2 ↔ finiteReach (coTm M) c1 c2 := by
   rw [finiteReach]
   constructor
   intro ⟨n, h⟩
@@ -475,7 +475,7 @@ theorem mFiniteReachIffCoMFiniteReach (M : Machine) (c1 c2 : Cfg) : finiteReach 
   use n
   exact h
 
-theorem mAcceptsCIffCoMRejectsC (M : Machine) (c : Cfg) : isAccept M c ↔ isReject (coTm M) c := by
+theorem mAcceptsCIffCoMRejectsC (M : Dtm) (c : Cfg) : isAccept M c ↔ isReject (coTm M) c := by
   rw [isAccept, isReject, coTm]
   simp
   intro h
@@ -487,7 +487,7 @@ theorem mAcceptsCIffCoMRejectsC (M : Machine) (c : Cfg) : isAccept M c ↔ isRej
   exact h
 
 
-theorem isAcceptIffIsNotReject (M : Machine) (c : Cfg) (h0 : c.state ∈ M.Q)  : isAccept M c ↔ ¬ isReject M c := by
+theorem isAcceptIffIsNotReject (M : Dtm) (c : Cfg) (h0 : c.state ∈ M.Q)  : isAccept M c ↔ ¬ isReject M c := by
   constructor
   intro h
   rw [isReject]
@@ -500,12 +500,12 @@ theorem isAcceptIffIsNotReject (M : Machine) (c : Cfg) (h0 : c.state ∈ M.Q)  :
   rw [isReject] at h
   tauto
 
-theorem isRejectIfIsNotAccept (M : Machine) (c : Cfg) (h0 : c.state ∈ M.Q) : ¬ isAccept M c → isReject M c := by
+theorem isRejectIfIsNotAccept (M : Dtm) (c : Cfg) (h0 : c.state ∈ M.Q) : ¬ isAccept M c → isReject M c := by
   rw [isAcceptIffIsNotReject]
   simp
   exact h0
 
-theorem mAccpetsWAndMRejectsWIffFalse (M : Machine) (w : Word) : mAcceptsW M w ∧ mRejectsW M w ↔ False := by
+theorem mAccpetsWAndMRejectsWIffFalse (M : Dtm) (w : Word) : mAcceptsW M w ∧ mRejectsW M w ↔ False := by
   constructor
   intro ⟨h1, h2⟩
   rcases h2 with ⟨hl, _⟩
@@ -513,52 +513,33 @@ theorem mAccpetsWAndMRejectsWIffFalse (M : Machine) (w : Word) : mAcceptsW M w �
   tauto
 
 
-theorem kekwxD (M1 M2 : Machine) (w : Word) : mAcceptsW (prodM M1 M2) w ↔ (mAcceptsW M1 w) := by
+theorem prodMAcceptsWIffM1OrM2AccpetsW (M1 M2 : Dtm) (w : Word) : mAcceptsW (prodM M1 M2) w ↔ (mAcceptsW M1 w) := by
   sorry
 
-theorem prodMAcceptsWIffM1OrM2AccpetsW (M1 M2 : Machine) (w : Word) : mAcceptsW (prodM M1 M2) w ↔ (mAcceptsW M1 w) := by
+theorem prodMRejectsWIffM1AndM2RejectsW (M1 M2 : Dtm) (w : Word) : mRejectsW (prodM M1 M2) w ↔ (mAcceptsW M2 w) := by
   sorry
 
-theorem prodMRejectsWIffM1AndM2RejectsW (M1 M2 : Machine) (w : Word) : mRejectsW (prodM M1 M2) w ↔ (mAcceptsW M2 w) := by
+theorem prodMHaltsOnWIffM1OrM2HaltsOnW (M1 M2 : Dtm) (w : Word) : mHaltsOnW (prodM M1 M2) w := by
   sorry
 
-theorem prodMHaltsOnWIffM1OrM2HaltsOnW (M1 M2 : Machine) (w : Word) : mHaltsOnW (prodM M1 M2) w := by
-  sorry
-
-theorem prodMAcceptsIfM1Accepts (M1 M2 : Machine) (w : Word) : mAcceptsW M1 w → mAcceptsW (prodM M1 M2) w := by
-  intro h
-  rw [prodMAcceptsWIffM1OrM2AccpetsW]
-  tauto
-
---theorem prodMAcceptsIfM2Accepts (M1 M2 : Machine) (w : Word) : mAcceptsW M2 w → mAcceptsW (prodM M1 M2) w := by
- -- intro h
- -- rw [prodMAcceptsWIffM1OrM2AccpetsW]
- -- tauto
-
-theorem mHaltsOnWIffMAcceptsWOrMRejectsW (M : Machine) (w : Word) : mHaltsOnW M w ↔ (mAcceptsW M w ∨ mRejectsW M w) := by
+theorem mHaltsOnWIffMAcceptsWOrMRejectsW (M : Dtm) (w : Word) : mHaltsOnW M w ↔ (mAcceptsW M w ∨ mRejectsW M w) := by
   constructor
   intro h
   rcases h with ⟨c, h1, h2⟩
-  have L := languageOfMachine M
-  have v : w∈L ∨ w∉L := wInLOrWNotInL w L
-  rcases v with wi | wo
+  have g : w ∈ languageOfMachine M ∨ w ∉ languageOfMachine M := by tauto
+  rcases g with gi | go
   left
-  rw [mAcceptsW]
-  use c
-  constructor
-  exact h1
-  constructor
-  -- use help2 proof
-  sorry
-  exact h2
+  tauto
   right
-  rw [mRejectsW]
+  rw [languageOfMachine] at go
+  simp at go
   constructor
-  sorry
+  exact go
+  rw [mHaltsOnW]
   use c
   exact ⟨h1, h2⟩
   intro h
-  rcases h with ⟨c1, hl1, hl2, hl3⟩ | ⟨hr1, c2, hr2, hr3⟩
+  rcases h with ⟨c1, hl1, _, hl3⟩ | ⟨_, c2, hr2, hr3⟩
   rw [mHaltsOnW]
   use c1
   exact ⟨hl1, hl3⟩
@@ -566,14 +547,11 @@ theorem mHaltsOnWIffMAcceptsWOrMRejectsW (M : Machine) (w : Word) : mHaltsOnW M 
   use c2
   exact ⟨hr2, hr3⟩
 
-theorem notMHaltsOnWIffNotMAcceptsWAndNotMRejectsW (M : Machine) (w : Word) : ¬ mHaltsOnW M w ↔ (¬ mRejectsW M w ∧ ¬ mAcceptsW M w) := by
+theorem notMHaltsOnWIffNotMAcceptsWAndNotMRejectsW (M : Dtm) (w : Word) : ¬ mHaltsOnW M w ↔ (¬ mRejectsW M w ∧ ¬ mAcceptsW M w) := by
   rw [mHaltsOnWIffMAcceptsWOrMRejectsW]
   tauto
 
-
-
-
-theorem mAcceptsWIffNotMRejectsWAndMHaltsOnW (M : Machine) (w : Word) : mAcceptsW M w ↔ ¬ mRejectsW M w ∧ mHaltsOnW M w := by
+theorem mAcceptsWIffNotMRejectsWAndMHaltsOnW (M : Dtm) (w : Word) : mAcceptsW M w ↔ ¬ mRejectsW M w ∧ mHaltsOnW M w := by
   constructor
   intro h
   constructor
@@ -591,7 +569,7 @@ theorem mAcceptsWIffNotMRejectsWAndMHaltsOnW (M : Machine) (w : Word) : mAccepts
   by_contra _
   exact hl hr2
 
-theorem notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW (M : Machine) (w : Word) : (¬ mAcceptsW M w ∧ ¬ mRejectsW M w) ↔ ¬ mHaltsOnW M w := by
+theorem notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW (M : Dtm) (w : Word) : (¬ mAcceptsW M w ∧ ¬ mRejectsW M w) ↔ ¬ mHaltsOnW M w := by
   constructor
   rintro ⟨hl, hr⟩
   by_contra f
@@ -614,7 +592,7 @@ theorem notMAcceptsWAndNotMRejectsWIffNotMHaltsOnW (M : Machine) (w : Word) : (�
   specialize h c
   exact h
 
-theorem notMAcceptsWIffMRejectsWOrMHaltsOnW (M : Machine) (w : Word) : ¬ mAcceptsW M w ↔ (mRejectsW M w ∨ ¬ mHaltsOnW M w) := by
+theorem notMAcceptsWIffMRejectsWOrMHaltsOnW (M : Dtm) (w : Word) : ¬ mAcceptsW M w ↔ (mRejectsW M w ∨ ¬ mHaltsOnW M w) := by
   constructor
   intro h
   by_contra f
@@ -632,7 +610,7 @@ theorem notMAcceptsWIffMRejectsWOrMHaltsOnW (M : Machine) (w : Word) : ¬ mAccep
   rw [notMHaltsOnWIffNotMAcceptsWAndNotMRejectsW] at hr
   exact hr.2 f
 
-theorem mRejectsWIffNotMAcceptsWAndMHaltsOnW (M : Machine) (w : Word) : mRejectsW M w ↔ (¬ mAcceptsW M w ∧ mHaltsOnW M w) := by
+theorem mRejectsWIffNotMAcceptsWAndMHaltsOnW (M : Dtm) (w : Word) : mRejectsW M w ↔ (¬ mAcceptsW M w ∧ mHaltsOnW M w) := by
   constructor
   intro h
   rw [notMAcceptsWIffMRejectsWOrMHaltsOnW]
@@ -649,7 +627,7 @@ theorem mRejectsWIffNotMAcceptsWAndMHaltsOnW (M : Machine) (w : Word) : mRejects
   exact f hl1
   exact hl2 hr 
 
-theorem notMRejectsWIffMAcceptsWOrMHaltsOnW (M : Machine) (w : Word) : ¬ mRejectsW M w ↔ (mAcceptsW M w ∨ ¬ mHaltsOnW M w) := by
+theorem notMRejectsWIffMAcceptsWOrMHaltsOnW (M : Dtm) (w : Word) : ¬ mRejectsW M w ↔ (mAcceptsW M w ∨ ¬ mHaltsOnW M w) := by
   constructor
   intro h
   by_contra f
@@ -670,35 +648,34 @@ theorem notMRejectsWIffMAcceptsWOrMHaltsOnW (M : Machine) (w : Word) : ¬ mRejec
   exact hr.1 f
 
 
-theorem wInLangaugeOfMachineIffMAcceptsW (M : Machine) (w : Word) : w ∈ languageOfMachine M ↔ mAcceptsW M w := by
+theorem wInLangaugeOfMachineIffMAcceptsW (M : Dtm) (w : Word) : w ∈ languageOfMachine M ↔ mAcceptsW M w := by
   tauto 
 
-theorem wNotInLanguageOfMachineIffNotMAcceptsW (M : Machine) (w : Word) : w ∉ languageOfMachine M ↔ ¬ mAcceptsW M w := by
+theorem wNotInLanguageOfMachineIffNotMAcceptsW (M : Dtm) (w : Word) : w ∉ languageOfMachine M ↔ ¬ mAcceptsW M w := by
   tauto
 
-theorem wNotInLanguageOfMachineIfMRejectesW (M : Machine) (w : Word) : mRejectsW M w → w ∉ languageOfMachine M := by
+theorem wNotInLanguageOfMachineIfMRejectesW (M : Dtm) (w : Word) : mRejectsW M w → w ∉ languageOfMachine M := by
   intro h
   rw [wNotInLanguageOfMachineIffNotMAcceptsW]
   rw [mRejectsWIffNotMAcceptsWAndMHaltsOnW] at h
   exact h.1
 
-theorem mHaltsOnWIfMAcceptsW (M : Machine) (w : Word) : mAcceptsW M w → mHaltsOnW M w := by
+theorem mHaltsOnWIfMAcceptsW (M : Dtm) (w : Word) : mAcceptsW M w → mHaltsOnW M w := by
   rw [mAcceptsW]
   rintro ⟨c, h⟩
   use c
   exact ⟨h.1, h.2.2⟩
 
-theorem mHaltsOnWIfMRejectsW (M : Machine) (w : Word) : mRejectsW M w → mHaltsOnW M w := by
+theorem mHaltsOnWIfMRejectsW (M : Dtm) (w : Word) : mRejectsW M w → mHaltsOnW M w := by
   intro ⟨_, h⟩
   exact h
 
 
-theorem mHaltsOrMNotHalts (M : Machine) (w : Word) : mHaltsOnW M w ∨ ¬ mHaltsOnW M w := by
+theorem mHaltsOrMNotHalts (M : Dtm) (w : Word) : mHaltsOnW M w ∨ ¬ mHaltsOnW M w := by
   tauto
 
-
   -- R ∨ ¬ H →neg (A ∨ ¬ H) ∧ H = A ∧ H (cont. with h)
-theorem mRejectsWNotInLanguageOfMachine (M : Machine) (w : Word) : w ∉ languageOfMachine M ↔ (mRejectsW M w ∨ ¬ mHaltsOnW M w) := by 
+theorem mRejectsWNotInLanguageOfMachine (M : Dtm) (w : Word) : w ∉ languageOfMachine M ↔ (mRejectsW M w ∨ ¬ mHaltsOnW M w) := by 
   constructor
   intro h
   by_contra f
@@ -723,35 +700,91 @@ theorem mRejectsWNotInLanguageOfMachine (M : Machine) (w : Word) : w ∉ languag
   rw [mAcceptsWIffNotMRejectsWAndMHaltsOnW] at f
   exact hr f.2
 
--- is this true or only for decider ?
--- DTM
-theorem mAcceptsWIffCoMRejectsW (M : Machine) (w : Word) : mAcceptsW M w ↔ mRejectsW (coTm M) w := by
+
+theorem mHaltsOnWIffCoMHaltsOnW (M : Dtm) (w : Word) : mHaltsOnW M w ↔ mHaltsOnW (coTm M) w := by
   constructor
   intro h
-  have g := (mHaltsOnWIfMAcceptsW M w) h
+  rw [mHaltsOnW]
+  rcases h with ⟨c, h⟩
+  use c
+  rw [← mFiniteReachIffCoMFiniteReach, ← startCfgTmEqstartCfgCoTm, ← isFinalMIffisFinalcoTm]
+  exact h
+  intro h
+  rcases h with ⟨c, h⟩
+  use c
+  rw [mFiniteReachIffCoMFiniteReach, startCfgTmEqstartCfgCoTm, isFinalMIffisFinalcoTm]
+  exact h
+
+theorem mAcceptsWAndCoMAcceptsWIffFalse (M : Dtm) (w : Word) : (mAcceptsW M w ∧ mAcceptsW (coTm M) w) ↔ False := by
+  constructor
+  intro ⟨hl, hr⟩
+  rcases hl with ⟨c1, hl⟩
+  rcases hr with ⟨c2, hr⟩
+  have f : c1 = c2 := sorry -- by uniqueness
+  have g1 := hl.2.1
+  have g2 := hr.2.1
+  rw [← f] at g2
+  rw [mAcceptsCIffCoMRejectsC] at g1
+  rw [isAccept] at g2
+  rw [isReject] at g1
+  exact g1.1 g2.1
+  simp
+
+theorem mRejectsWAndCoMRejectsWIffFalse (M : Dtm) (w : Word) : (mRejectsW M w ∧ mRejectsW (coTm M) w) ↔ False := by
+  constructor
+  repeat rw [mRejectsW, mAcceptsW]
+  intro ⟨h1, h2, c, h3⟩
+  rcases h1 with ⟨h1, h4⟩
+  simp at h1 h2
+  specialize h1 c
+  specialize h2 c
+  rw [← mFiniteReachIffCoMFiniteReach, ← startCfgTmEqstartCfgCoTm] at h2
+  rw [mAcceptsCIffCoMRejectsC, ← mEqCoCoM, ← isFinalMIffisFinalcoTm] at h2
+  rw [← isFinalMIffisFinalcoTm, ← startCfgTmEqstartCfgCoTm, ← mFiniteReachIffCoMFiniteReach] at h3
+  have g1 := h1 h3.1
+  have g2 := h2 h3.1
+  have g3 : isAccept M c ∨ isReject M c
+  by_contra f
+  push_neg at f
+  rw [← isAcceptIffIsNotReject] at f
+  tauto
+  rw [isFinal] at h3
+  exact h3.2.2
+  rcases g3 with ga | gr
+  have g3 := g1 ga
+  exact g3 h3.2
+  have g3 := g2 gr
+  exact g3 h3.2
+  tauto
+
+-- M and CoM take the same path hence land in the same end config
+
+theorem mAcceptsWIffCoMRejectsW (M : Dtm) (w : Word) : mAcceptsW M w ↔ mRejectsW (coTm M) w := by
+  constructor
+  intro h
   rw [mRejectsW]
   constructor
   by_contra f
-  have g2 : w ∈ languageOfMachine M 
-  rw [languageOfMachine]
-  simp
+  have g : mAcceptsW M w ∧ mAcceptsW (coTm M) w := ⟨h, f⟩
+  rw [mAcceptsWAndCoMAcceptsWIffFalse] at g
+  exact g
+  rw [← mHaltsOnWIffCoMHaltsOnW]
+  apply mHaltsOnWIfMAcceptsW M w
   exact h
-  have g3 : w ∈ languageOfMachine (coTm M)
-  rw [languageOfMachine]
-  simp
-  exact f
-  rw [languageOfMachine] at g2
-  rw [languageOfMachine] at g3
-  rcases g2 with ⟨c1, g2⟩
-  rcases g3 with ⟨c2, g3⟩
-  have f2 := g2.2.2
-  have f3 := g3.2.2
+  intro h
+  rcases h with ⟨h1, h2⟩
+  rw [notMAcceptsWIffMRejectsWOrMHaltsOnW] at h1
+  rcases h1 with h1 | h2
+  by_contra f
+  rw [notMAcceptsWIffMRejectsWOrMHaltsOnW] at f
+  rcases f with f1 | f2
+  have g : mRejectsW M w ∧ mRejectsW (coTm M) w := ⟨f1, h1⟩
+  rw [mRejectsWAndCoMRejectsWIffFalse] at g
+  exact g
+  rw [mHaltsOnWIffCoMHaltsOnW] at f2
+  repeat contradiction
 
-  repeat sorry
- 
-
-
-theorem mRejectsWIffCoMAcceptsW (M : Machine) (w : Word) : mRejectsW M w ↔ mAcceptsW (coTm M) w := by 
+theorem mRejectsWIffCoMAcceptsW (M : Dtm) (w : Word) : mRejectsW M w ↔ mAcceptsW (coTm M) w := by 
   constructor
   intro h
   rw [mAcceptsWIffCoMRejectsW]
@@ -761,69 +794,3 @@ theorem mRejectsWIffCoMAcceptsW (M : Machine) (w : Word) : mRejectsW M w ↔ mAc
   rw [mAcceptsWIffCoMRejectsW] at h
   rw [← mEqCoCoM] at h
   exact h
-
--- is this even true ?
-theorem languageOfMachineMEqLangaugeOfCoMCompl (M : Machine)  : languageOfMachine M = (languageOfMachine (coTm M))ᶜ := by
-  ext w
-  repeat rw [languageOfMachine]
-  simp
-  constructor
-  intro h2
-  rw [← mRejectsWIffCoMAcceptsW]
-  rw [notMRejectsWIffMAcceptsWOrMHaltsOnW]
-  left
-  exact h2
-  intro h2
-  rw [notMAcceptsWIffMRejectsWOrMHaltsOnW]at h2
-  rcases h2 with hl | hr
-  rw [← mAcceptsWIffCoMRejectsW] at hl
-  exact hl
-  rw [mHaltsOnWIffMAcceptsWOrMRejectsW] at hr
-  sorry
-
-
--- unprovable for the same reason as the theorem above
-theorem wInLangaugeOfMIffWNotInLanguageOfCoM (M : Machine) : w ∈ languageOfMachine M ↔ w ∉ languageOfMachine (coTm M) := by
-  repeat rw [languageOfMachine]
-  simp
-  constructor
-  intro h
-  rw [← mRejectsWIffCoMAcceptsW]
-  rw [notMRejectsWIffMAcceptsWOrMHaltsOnW]
-  left
-  exact h
-  intro h
-  rw [← mRejectsWIffCoMAcceptsW] at h
-  rw [notMRejectsWIffMAcceptsWOrMHaltsOnW] at h
-  rcases h with hl | hr 
-  exact hl
-  sorry
-
-
-theorem mHaltsOnWIffMAcceptsWOrMRejectsW3 (M : Machine) (w : Word) : mHaltsOnW M w ↔ (mAcceptsW M w ∨ mRejectsW M w) := by
-  constructor
-  intro h
-  have L := languageOfMachine M
-  have v : w∈L ∨ w∉L := wInLOrWNotInL w L
-  rcases v with wi | wo
-  by_contra f
-  have g : ¬ mAcceptsW M w ∧ ¬ mRejectsW M w := sorry -- something like push_neg at f
-  rw [notMAcceptsWIffMRejectsWOrMHaltsOnW, notMRejectsWIffMAcceptsWOrMHaltsOnW] at g
-  rcases g with ⟨g1l | g1r , g2l | g2r⟩
-  have g3 : mAcceptsW M w ∧ mRejectsW M w := ⟨g2l, g1l⟩
-  rw [mAccpetsWAndMRejectsWIffFalse] at g3
-  exact g3
-  repeat contradiction
-  by_contra f
-  have g : ¬ mAcceptsW M w ∧ ¬ mRejectsW M w := sorry -- something like push_neg at f
-  rw [notMAcceptsWIffMRejectsWOrMHaltsOnW, notMRejectsWIffMAcceptsWOrMHaltsOnW] at g
-  rcases g with ⟨g1l | g1r , g2l | g2r⟩
-  have g3 : mAcceptsW M w ∧ mRejectsW M w := ⟨g2l, g1l⟩
-  rw [mAccpetsWAndMRejectsWIffFalse] at g3
-  exact g3
-  repeat contradiction
-  intro h
-  rcases h with ⟨c, hl⟩ | ⟨c, hr⟩
-  use c
-  exact ⟨hl.1, hl.2.2⟩
-  exact hr
