@@ -198,7 +198,7 @@ def updateHead (n: ℕ) (d: Direction) : ℕ :=
 def updateCfg (cfg: Cfg) (q γ : ℕ) (d: Direction) : Cfg := 
   match cfg.head, d with
     | 0, Direction.L => {state := q, head := 0, left := List.nil,  right := cfg.right.modifyHead γ}
-    | _, Direction.L => {state := q, head := cfg.head-1, left := cfg.left.reverse.tail.reverse,  right := [γ].append cfg.left}
+    | _, Direction.L => {state := q, head := cfg.head-1, left := cfg.left.reverse.tail.reverse,  right := [cfg.left.reverse.head!, γ].append cfg.right.tail}
     | _, Direction.R => {state := q, head := cfg.head+1, left := cfg.left.append [γ],  right := cfg.right.tail}
     | _, Direction.N => {state := q, head := cfg.head, left := cfg.left,  right := cfg.right.modifyHead γ}
 

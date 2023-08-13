@@ -28,14 +28,14 @@ def fEqωg (f : ℕ → ℕ) (g : ℝ → ℝ) : Prop :=
   ∀ (c : ℝ), ∃ (n0 : ℕ), ∀ (n : ℕ), c > 0 ∧ n > n0 → f n ≥ c * g n
 
 
-def mIsBoundedByF (M : Machine) (f : ℕ → ℕ) : Prop :=
+def mIsBoundedByF (M : Dtm) (f : ℕ → ℕ) : Prop :=
   ∀ (w : Word), ∃ (c1 c2 : Cfg), c1 = startCfg M w ∧ reachN M (f w.length) c1 c2 ∧ mHaltsOnW M w
 
-def mIsBoundedByOg (M : Machine) (g : ℝ → ℝ) : Prop := 
+def mIsBoundedByOg (M : Dtm) (g : ℝ → ℝ) : Prop := 
   ∃ (f : ℕ → ℕ), mIsBoundedByF M f ∧ fEqOg f g 
 
 def exOgBoundedTmForL (L : Language) (g : ℝ → ℝ) : Prop :=
-  ∃ (M : Machine), (mIsBoundedByOg M g ∧ L = languageOfMachine M)
+  ∃ (M : Dtm), (mIsBoundedByOg M g ∧ L = languageOfMachine M)
 
 
 def NTime (g : ℝ → ℝ) : Set Language :=
