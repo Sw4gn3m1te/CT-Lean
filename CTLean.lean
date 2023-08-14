@@ -21,14 +21,14 @@ def L2 : Language := {[1], [1,2], [1,1,1], [1,2,1,2], [1,1,1,1,1]}
 
 def TmL1 : Dtm := {Q:= Finset.range 6, Λ:= Finset.range 2, Γ:= Finset.range 3, F:= {1,2,3,4}, q0:= 0,
                        δ:= fun (q, γ) => (if (q<4 ∧ γ == 1) then (q + 1, 1, Direction.R) else (5, γ, Direction.N)),
-                       FInQ := by simp, uniqueness := by sorry}
+                       FInQ := by simp, q0InQ := by simp, validδ := by sorry, uniqueness := by sorry}
 
 
 def TmL2 : Dtm := {Q:= Finset.range 7, Λ:= Finset.range 3, Γ:= Finset.range 4, F:= {1,2,3,4,5}, q0:= 0,
                        δ:= fun (q, γ) => (if (q%2 == 1 ∧ γ == 1 ∧ q<9) then (q+1, γ, Direction.R)
                         else if (q%2 == 1 ∧ γ == 1 ∧ q<5) then (q+1, γ, Direction.R)
                         else (5, γ, Direction.N)),
-                        FInQ := by simp, uniqueness := by sorry}
+                        FInQ := by simp, q0InQ := by simp, validδ := by sorry, uniqueness := by sorry}
 
 -- B = 0, 0 = 1, X = 2, C = 3
 def TmL3 : Dtm := {Q := Finset.range 7, Λ := Finset.range 3, Γ := Finset.range 4, F := {6}, q0 := 0,
@@ -45,7 +45,7 @@ def TmL3 : Dtm := {Q := Finset.range 7, Λ := Finset.range 3, Γ := Finset.range
                                        else if (q == 5 ∧ γ == 1) then (5, 1, Direction.L)
                                        else if (q == 5 ∧ γ == 2) then (6, 1, Direction.N)
                                        else (q, γ, Direction.N)),
-                                      FInQ := by simp, uniqueness := by sorry}
+                                      FInQ := by simp, q0InQ := by simp, validδ := by sorry, uniqueness := by sorry}
 
 #eval (prodM TmL1 TmL2).Q
 
@@ -89,8 +89,6 @@ def o16 := stepMOnC TmL3 o15
 #eval (o15.state, o15.head, o15.left, o15.right)
 #eval (o16.state, o16.head, o16.left, o16.right)
 
-def runTmL3 := run
-
 
 def x := o5
 #eval ((TmL1.δ (x.state, x.right.head!)).fst, (TmL1.δ (x.state, x.right.head!)).snd.fst,  directionToNum (TmL1.δ (x.state, x.right.head!)).snd.snd)
@@ -100,11 +98,11 @@ def x := o5
 
 def TMExample : Machine := {Q:= Finset.range 3, Λ:= Finset.range 3, Γ:= Finset.range 3, F:= Finset.empty, q0:= 1,
                             δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L),
-                            FInQ := by simp}
+                            FInQ := by simp, q0InQ := by simp, validδ := by sorry}
 
 def TMExample2 : Machine := {Q:= Finset.range 4, Λ:= Finset.range 4, Γ:= Finset.range 4, F:= Finset.empty, q0:= 1,
                              δ := fun (q, γ) => ((q + 1) % 5, (γ + 1) % 26, Direction.L),
-                             FInQ := by simp}
+                             FInQ := by simp, q0InQ := by simp, validδ := by sorry}
 
 def v : Word := [1, 2, 3]
 def w : Word := [3, 4]

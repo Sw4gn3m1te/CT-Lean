@@ -25,6 +25,7 @@ inductive Direction where
   | R : Direction
   | N : Direction
 
+def validDirections : Set Direction := {Direction.L, Direction.R, Direction.N}
 
 def directionToNum (d : Direction) : ℤ :=
   match d with
@@ -53,6 +54,12 @@ structure Machine where
 
   FInQ:
     F ⊆ Q
+  
+  q0InQ:
+    q0 ∈ Q
+
+  validδ:
+    ∀ x, ((δ x).fst ∈ Q ∧ (δ x).snd.fst ∈ Γ ∧ (δ x).snd.snd ∈ validDirections)
   
 
 structure Dtm extends Machine where
@@ -119,11 +126,11 @@ def prodM (M1 M2 : Dtm) : Dtm :=
   {Q := (Finset.product M1.Q M2.Q).image (fun n : ℕ × ℕ => goedelize n.fst n.snd), Λ := M1.Λ ∪ M2.Λ, Γ := M1.Γ ∪ M2.Γ,
    F := (Finset.product M1.F M2.F).image (fun n : ℕ × ℕ => goedelize n.fst n.snd) , q0 := goedelize M1.q0 M2.q0,
    δ := fun (q, γ) => (goedelize ((M1.δ ((deGoedelize q).fst, γ)).fst) ((M2.δ ((deGoedelize q).snd, γ)).fst), γ, Direction.N),
-   FInQ := by sorry, uniqueness := by sorry}
+   FInQ := by sorry, uniqueness := by sorry, q0InQ := by sorry, validδ := sorry}
 
 
 def coTm (M : Dtm) : Dtm :=
-  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ, FInQ := by simp, uniqueness := M.uniqueness}
+  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ, FInQ := by simp, q0InQ:=M.q0InQ, validδ:= M.validδ, uniqueness:=M.uniqueness}
 
 
 theorem mEqCoCoM (M : Dtm) : M = coTm (coTm M) := by
@@ -140,6 +147,10 @@ theorem mEqCoCoM (M : Dtm) : M = coTm (coTm M) := by
 
 def cfgEquiv (c1 c2 : Cfg) : Prop :=
   c1.state = c2.state ∧ c1.head = c2.head ∧ c1.left = c2.left ∧ c1.right = c2.right
+
+
+def validCfg (M : Dtm) (c : Cfg) : Prop :=
+  c.state ∈ M.Q
 
 
 @[simp]
@@ -195,12 +206,12 @@ def updateHead (n: ℕ) (d: Direction) : ℕ :=
 
 
 -- creates new config by applying changes to old config
-def updateCfg (cfg: Cfg) (q γ : ℕ) (d: Direction) : Cfg := 
-  match cfg.head, d with
-    | 0, Direction.L => {state := q, head := 0, left := List.nil,  right := cfg.right.modifyHead γ}
-    | _, Direction.L => {state := q, head := cfg.head-1, left := cfg.left.reverse.tail.reverse,  right := [cfg.left.reverse.head!, γ].append cfg.right.tail}
-    | _, Direction.R => {state := q, head := cfg.head+1, left := cfg.left.append [γ],  right := cfg.right.tail}
-    | _, Direction.N => {state := q, head := cfg.head, left := cfg.left,  right := cfg.right.modifyHead γ}
+def updateCfg (c: Cfg) (q γ : ℕ) (d: Direction) : Cfg := 
+  match c.head, d with
+    | 0, Direction.L => {state := q, head := 0, left := List.nil,  right := c.right.modifyHead γ}
+    | _, Direction.L => {state := q, head := c.head-1, left := c.left.reverse.tail.reverse,  right := [c.left.reverse.head!, γ].append c.right.tail}
+    | _, Direction.R => {state := q, head := c.head+1, left := c.left.append [γ],  right := c.right.tail}
+    | _, Direction.N => {state := q, head := c.head, left := c.left,  right := c.right.modifyHead γ}
 
 --def reachSuccOld (M : Machine) (c1 c2 : Cfg) : Prop :=
 --  ∃ (a γ s w : ℕ) (d : Direction), M.δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
@@ -209,18 +220,23 @@ def stepMOnC (M : Dtm) (c : Cfg) : Cfg :=
   updateCfg c (M.δ (c.state, c.right.head!)).fst (M.δ (c.state, c.right.head!)).snd.fst (M.δ (c.state, c.right.head!)).snd.snd
 
 
+def stepMOnCN (M : Dtm) (c : Cfg) (n : ℕ) : Cfg :=
+  match n with
+    | 0 => c
+    | Nat.succ m => stepMOnCN M (stepMOnC M c) m
+
 def reachSucc (M : Dtm) (c1 c2 : Cfg) : Prop :=
   ∃ (s w : ℕ) (d : Direction), M.δ (c1.state, c1.right.head!) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
-def isAccept (M : Dtm) (cfg : Cfg)  : Prop :=
-  cfg.state ∈ M.F ∧ cfg.state ∈ M.Q
+def isAccept (M : Dtm) (c : Cfg)  : Prop :=
+  c.state ∈ M.F ∧ validCfg M c
 
-def isReject (M : Dtm) (cfg : Cfg)  : Prop :=
-  cfg.state ∉ M.F ∧ cfg.state ∈ M.Q
+def isReject (M : Dtm) (c : Cfg)  : Prop :=
+  c.state ∉ M.F ∧ validCfg M c
 
--- just stand still if term ?
-def isFinal (M  : Dtm) (cfg : Cfg) : Prop :=
-  M.δ (cfg.state, cfg.right.head!) = (cfg.state, cfg.right.head!, Direction.N) ∧ cfg.state ∈ M.Q
+def isFinal (M  : Dtm) (c : Cfg) : Prop :=
+  stepMOnC M c = c ∧ validCfg M c
+  -- M.δ (c.state, c.right.head!) = (c.state, c.right.head!, Direction.N) ∧ validCfg M c
 
 
 def reachN (M : Dtm) (n : ℕ) (c1 c2 : Cfg) : Prop :=
@@ -251,6 +267,17 @@ theorem startCfgTmEqstartCfgCoTm (M : Dtm) : startCfg M = startCfg (coTm M) := b
 
 theorem isFinalMIffisFinalcoTm (M : Dtm) (c : Cfg) : isFinal M c ↔ isFinal (coTm M) c := by
   tauto
+
+
+def startCfgIsValid (M : Dtm) (w : Word) : validCfg M (startCfg M w) := by
+  rw [startCfg]
+  simp
+  apply M.q0InQ
+
+def stepMOnCPerservesCfgValidity (M : Dtm) (c : Cfg) : validCfg M c ↔ validCfg M (stepMOnC M c) := by
+  constructor
+  intro h
+  repeat sorry
 
 theorem noHaltingMachineExists (MHalt M : Dtm) (w : Word) : ¬ ∃ (MHalt : Dtm), (∀ M, mHaltsOnW M w) := by
   sorry
@@ -478,16 +505,10 @@ theorem mFiniteReachIffCoMFiniteReach (M : Dtm) (c1 c2 : Cfg) : finiteReach M c1
 theorem mAcceptsCIffCoMRejectsC (M : Dtm) (c : Cfg) : isAccept M c ↔ isReject (coTm M) c := by
   rw [isAccept, isReject, coTm]
   simp
-  intro h
-  constructor
-  intro h2 _
-  exact h2
-  intro h4
-  apply h4
-  exact h
+  tauto
 
 
-theorem isAcceptIffIsNotReject (M : Dtm) (c : Cfg) (h0 : c.state ∈ M.Q)  : isAccept M c ↔ ¬ isReject M c := by
+theorem isAcceptIffIsNotReject (M : Dtm) (c : Cfg) (h0 : validCfg M c) : isAccept M c ↔ ¬ isReject M c := by
   constructor
   intro h
   rw [isReject]
@@ -498,9 +519,10 @@ theorem isAcceptIffIsNotReject (M : Dtm) (c : Cfg) (h0 : c.state ∈ M.Q)  : isA
   rw [isAccept]
   simp
   rw [isReject] at h
+  simp at h
   tauto
 
-theorem isRejectIfIsNotAccept (M : Dtm) (c : Cfg) (h0 : c.state ∈ M.Q) : ¬ isAccept M c → isReject M c := by
+theorem isRejectIfIsNotAccept (M : Dtm) (c : Cfg) (h0 : validCfg M c) : ¬ isAccept M c → isReject M c := by
   rw [isAcceptIffIsNotReject]
   simp
   exact h0
@@ -715,6 +737,155 @@ theorem mHaltsOnWIffCoMHaltsOnW (M : Dtm) (w : Word) : mHaltsOnW M w ↔ mHaltsO
   rw [mFiniteReachIffCoMFiniteReach, startCfgTmEqstartCfgCoTm, isFinalMIffisFinalcoTm]
   exact h
 
+
+theorem mAndCoMHaltsOnWIffExSameFinalConfig (M : Dtm) (w : Word) :
+    (mHaltsOnW M w ∧ mHaltsOnW (coTm M) w ↔ (∃ c1 c2, (finiteReach M (startCfg M w) c1 ∧ isFinal M c1) ∧
+    (finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isFinal (coTm M) c2) ∧ c1 = c2)) := by
+  constructor
+  intro ⟨h1, _⟩
+  rcases h1 with ⟨c1, h1⟩ 
+  simp
+  use c1
+  constructor
+  exact h1
+  rw [← startCfgTmEqstartCfgCoTm, ← isFinalMIffisFinalcoTm, ← mFiniteReachIffCoMFiniteReach]
+  exact h1
+  simp
+  intro c h1 _ h3 h4
+  constructor
+  rw [mHaltsOnW]
+  use c
+  tauto
+  rw [mHaltsOnW]
+  use c
+  tauto
+
+
+theorem stepMOnCEqStepCoMOnC (M : Dtm) (w : Word) (c : Cfg) : stepMOnC M c = stepMOnC (coTm M) c := by
+  tauto
+
+
+theorem stepMOnCNEqStepCoMOnCN (M : Dtm) (w : Word) (c : Cfg) (n : ℕ) : stepMOnCN M c n = stepMOnCN (coTm M) c n := by
+  induction n generalizing c with
+    | zero => 
+      repeat rw [stepMOnCN]
+    | succ n ih => 
+      repeat rw [stepMOnCN]
+      rw [← stepMOnCEqStepCoMOnC]
+      specialize ih (stepMOnC M c)
+      rw [ih]
+      exact w
+
+theorem sameRunsIffSameDelta (M1 M2 : Dtm) (c : Cfg) (n : ℕ) : M1.δ = M2.δ ↔ ∀ c n, stepMOnCN M1 c n = stepMOnCN M2 c n := by 
+  constructor
+  intro h
+  intro c n
+  sorry
+  intro h
+  specialize h c n
+  sorry
+
+
+theorem reachSuccC1C2IffStepMOnC1EqC2 (M : Dtm) (c1 c2 : Cfg) : reachSucc M c1 c2 ↔ stepMOnC M c1 = c2 := by
+  constructor
+  intro h
+  repeat sorry
+
+
+theorem reachNExtendsFinalState (M : Dtm) (w : Word) (c : Cfg) (n : ℕ) : (reachN M n (startCfg M w) c ∧ isFinal M c) → reachN M (n+1) (startCfg M w) c := by
+  intro ⟨h1, h2⟩
+  use c
+  simp
+  constructor
+  exact h1
+  rw [reachSuccC1C2IffStepMOnC1EqC2]
+  rw [isFinal] at h2
+  exact h2.1
+
+
+theorem finiteReachIffExRun (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M c1 c2 ↔ ∃ n, (stepMOnCN M c1 n) = c2 := by
+  constructor
+  intro h
+  rcases h with ⟨n, h⟩
+  use n
+  induction n with
+    | zero => 
+      rw [stepMOnCN]
+      rw [reachN] at h
+      rw [← cfgEquivIffEq]
+      exact h
+    | succ n ih =>
+      rw [stepMOnCN]
+      sorry
+  sorry
+
+theorem mHaltsOnWIffExRun (M : Dtm) (w : Word) (c : Cfg) : mHaltsOnW M w ↔ ∃ n, isFinal M (stepMOnCN M (startCfg M w) n) := by
+  constructor
+  intro h
+  rcases h with ⟨c, h1, h2⟩
+  rw [finiteReachIffExRun] at h1
+  rcases h1 with ⟨n, h1⟩
+  use n
+  rw [← h1] at h2  
+  exact h2
+  exact w
+  intro h
+  rcases h with ⟨n, h⟩
+  induction n with
+    | zero =>
+      rw [stepMOnCN] at h
+      rw [mHaltsOnW]
+      use (startCfg M w)
+      constructor
+      rw [finiteReach]
+      use 0
+      rw [reachN, cfgEquivIffEq]
+      exact h
+    | succ n ih => 
+      rw [mHaltsOnW]
+      use (stepMOnCN M (startCfg M w) n)
+      rw [isFinal]
+      constructor
+      rw [mHaltsOnW] at ih
+      sorry
+      sorry
+
+theorem asdsd (M : Dtm) (w : Word) : mHaltsOnW M w ∧ mHaltsOnW (coTm M) w → ∃ c1 c2, isFinal M c1 ∧ isFinal (coTm M) c2 ∧ c1 = c2 := by
+  intro h
+  rcases h with ⟨⟨c1, h1⟩, ⟨c2, h2⟩⟩
+  use c1, c2
+  constructor
+  exact h1.2
+  constructor
+  exact h2.2
+  sorry
+
+  
+
+theorem testest (M : Dtm) (w : Word) (c1 c2 : Cfg) :
+     ((∃ c1, (finiteReach M (startCfg M w) c1 ∧ isAccept M c1 ∧ isFinal M c1)) ∧ 
+      (∃ c2, (finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isAccept (coTm M) c2 ∧ isFinal (coTm M) c2))) → c1 = c2 := by
+  intro h
+  have g1 : ∃ c1, (finiteReach M (startCfg M w) c1 ∧ isAccept M c1 ∧ isFinal M c1) := by tauto
+  have g2 : ∃ c2, (finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isAccept (coTm M) c2 ∧ isFinal (coTm M) c2) := by tauto
+  rw [← mAcceptsW] at g1 g2
+  have g3 : mHaltsOnW M w ∧ mHaltsOnW (coTm M) w
+  constructor
+  apply mHaltsOnWIfMAcceptsW
+  exact g1
+  apply mHaltsOnWIfMAcceptsW
+  exact g2
+
+  rcases h with ⟨⟨c1, h1⟩, ⟨c2, h2⟩⟩
+  rw [finiteReach] at h1 h2
+  rcases h1.1 with ⟨n1, f1⟩
+  rcases h2.1 with ⟨n2, f2⟩
+  
+  rw [mAndCoMHaltsOnWIffExSameFinalConfig] at g3
+  rcases g3 with ⟨c1, c2, _, _, f⟩
+  rw [← cfgEquivIffEq]
+  sorry  
+
 theorem mAcceptsWAndCoMAcceptsWIffFalse (M : Dtm) (w : Word) : (mAcceptsW M w ∧ mAcceptsW (coTm M) w) ↔ False := by
   constructor
   intro ⟨hl, hr⟩
@@ -729,6 +900,33 @@ theorem mAcceptsWAndCoMAcceptsWIffFalse (M : Dtm) (w : Word) : (mAcceptsW M w �
   rw [isReject] at g1
   exact g1.1 g2.1
   simp
+
+theorem mAcceptsWAndCoMAcceptsWIffFalse2 (M : Dtm) (w : Word) : (mAcceptsW M w ∧ mAcceptsW (coTm M) w) ↔ False := by
+  constructor
+  intro ⟨h1, h2⟩
+  have g : mHaltsOnW M w ∧ mHaltsOnW (coTm M) w
+  repeat rw [mHaltsOnWIffMAcceptsWOrMRejectsW]
+  constructor
+  repeat tauto
+  rcases h1 with ⟨c1, h1⟩
+  rcases h2 with ⟨c2, h2⟩
+  have f : c1 = c2
+  apply testest M w -- here
+  constructor
+  use c1
+  exact h1
+  use c2
+  exact h2
+  rw [← f] at h2
+  have g1 := h1.2.1
+  have g2 := h2.2.1
+  rw [mAcceptsCIffCoMRejectsC] at g1
+  rw [isAccept] at g2
+  rw [isReject] at g1
+  exact g1.1 g2.1
+  simp
+  
+
 
 theorem mRejectsWAndCoMRejectsWIffFalse (M : Dtm) (w : Word) : (mRejectsW M w ∧ mRejectsW (coTm M) w) ↔ False := by
   constructor

@@ -110,13 +110,13 @@ theorem decidableIffSemiAndCoSemi (L : Language) : decidable L ↔ (semiDecidabl
   use M
   intro w
   specialize h w
-  rcases h with ⟨hl, hr⟩ 
+  rcases h with ⟨hl, _⟩ 
   exact hl
   rw [coSemiDecidable]
   use (coTm M)
   intro w
   specialize h w
-  rcases h with ⟨hl, hr⟩ 
+  rcases h with ⟨_, hr⟩ 
   rw [← mRejectsWIffCoMAcceptsW]
   exact hr
   intro ⟨hl, hr⟩
