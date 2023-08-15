@@ -262,6 +262,8 @@ def mRejectsW (M : Dtm) (w : Word) : Prop :=
 def languageOfMachine (M : Dtm) : Language := 
   { w | mAcceptsW M w}
 
+def wordFromConfig (c : Cfg) : Word := 
+  c.left ++ c.right
 
 theorem startCfgTmEqstartCfgCoTm (M : Dtm) : startCfg M = startCfg (coTm M) := by
   tauto
@@ -782,6 +784,49 @@ theorem reachNExtendsFinalState (M : Dtm) (w : Word) (c : Cfg) (n : ℕ) : (reac
   exact h2.1
 
 
+theorem reach1IffStepMOnC1 (M : Dtm) (c1 c2 : Cfg) : reachN M 1 c1 c2 ↔ stepMOnCN M c1 1 = c2 := by
+  constructor
+  rw [reachN]
+  rintro ⟨c, h1, h2⟩
+  repeat rw [stepMOnCN]
+  rw [reachN, cfgEquivIffEq] at h1
+  rw [reachSucc] at h2
+  rw [← h1] at h2
+  rw [h2]
+  intro h
+  use c1
+  rw [reachN, cfgEquivIffEq]
+  constructor
+  rfl
+  rw [reachSucc]
+  repeat rw [stepMOnCN] at h
+  exact h
+
+
+theorem isFinalCIffReachSuccCC (M : Dtm) (c : Cfg) (h0 : validCfg M c) : isFinal M c ↔ reachSucc M c c := by
+  constructor
+  intro h
+  rcases h with ⟨h1, h2⟩
+  rw [← reachSucc] at h1
+  exact h1
+  intro h
+  constructor
+  rw [← reachSucc]
+  exact h
+  exact h0
+
+theorem reachNCCIfIsFinalC (M : Dtm) (c : Cfg) (h0 : validCfg M c) : isFinal M c → reachN M n c c := by
+  intro h
+  rcases h with ⟨h1, h2⟩
+  rw [← reachSucc] at h1
+  induction n with
+    | zero => 
+      rw [reachN, cfgEquivIffEq]
+    | succ n ih =>
+      rw [reachN]
+      use c
+      exact ⟨ih ,h1⟩
+
 theorem reachNIffStepMOnCN (M : Dtm) (c1 c2 : Cfg) : reachN M n c1 c2 ↔ stepMOnCN M c1 n = c2 := by
   constructor
   intro h
@@ -791,15 +836,27 @@ theorem reachNIffStepMOnCN (M : Dtm) (c1 c2 : Cfg) : reachN M n c1 c2 ↔ stepMO
       rw [stepMOnCN, ← cfgEquivIffEq]
       exact h
     | succ n ih => 
+
       rcases h with ⟨c, h1, h2⟩
-      rw [stepMOnCN]
-      rw [reachSucc] at h2
       specialize ih c
       specialize ih h1
-      rw [← ih] at h1
+      rw [stepMOnCN]
       sorry
+  
   intro h
-  sorry
+  induction n generalizing c2 with
+    | zero =>
+      rw [reachN, cfgEquivIffEq]
+      rw [stepMOnCN] at h
+      exact h
+    | succ n ih =>
+      rw [reachN]
+      use (stepMOnC M c1)
+      constructor
+      specialize ih (stepMOnC M c1)
+      apply ih
+      sorry
+      sorry
 
 
 theorem finiteReachIffExRun (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M c1 c2 ↔ ∃ n, (stepMOnCN M c1 n) = c2 := by
@@ -807,39 +864,15 @@ theorem finiteReachIffExRun (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M c
   intro h
   rcases h with ⟨n, h⟩
   use n
-  induction n generalizing c2 with
-    | zero => 
-      rw [reachN] at h
-      rw [stepMOnCN, ← cfgEquivIffEq]
-      exact h
-    | succ n ih =>
-      rw [stepMOnCN]
-      rw [reachN] at h
-      rcases h with ⟨c, h1, h2⟩
-      specialize ih c
-      have g := ih h1
-      rw [← reachSucc]
-      
-      
+  rw [reachNIffStepMOnCN] at h
+  exact h
+  rintro ⟨n, h⟩
+  rw [finiteReach]
+  use n
+  rw [reachNIffStepMOnCN]
+  exact h
 
-
-  intro h
-  rcases h with ⟨n, h⟩
-  induction n with
-    | zero =>
-      rw [stepMOnCN] at h
-      rw [h]
-      apply finiteReachSelf
-    | succ n ih => 
-      rw [stepMOnCN] at h
-      apply ih
-      rw [← h]
-      sorry
-      
-
-      
-
-theorem mHaltsOnWIffExRun (M : Dtm) (w : Word) (c : Cfg) : mHaltsOnW M w ↔ ∃ n, isFinal M (stepMOnCN M (startCfg M w) n) := by
+theorem mHaltsOnWIffExRun (M : Dtm) (w : Word) (c : Cfg) : mHaltsOnW M w ↔ (∃ n, isFinal M (stepMOnCN M (startCfg M w) n)) := by
   constructor
   intro h
   rcases h with ⟨c, h1, h2⟩
@@ -849,27 +882,17 @@ theorem mHaltsOnWIffExRun (M : Dtm) (w : Word) (c : Cfg) : mHaltsOnW M w ↔ ∃
   rw [← h1] at h2  
   exact h2
   exact w
-  intro h
-  rcases h with ⟨n, h⟩
-  induction n with
-    | zero =>
-      rw [stepMOnCN] at h
-      rw [mHaltsOnW]
-      use (startCfg M w)
-      constructor
-      rw [finiteReach]
-      use 0
-      rw [reachN, cfgEquivIffEq]
-      exact h
-    | succ n ih => 
-      rw [mHaltsOnW]
-      use (stepMOnCN M (startCfg M w) n)
-      rw [isFinal]
-      constructor
-      rw [mHaltsOnW] at ih
-      sorry
-      sorry
-  
+  rintro ⟨n, h⟩
+  rw [isFinal] at h
+  rw [mHaltsOnW]
+  use (stepMOnCN M (startCfg M w) n)
+  constructor
+  rw [finiteReach]
+  use n
+  rw [reachNIffStepMOnCN] -- unproven
+  rw [isFinal]
+  exact h
+
 
 theorem testest (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M (startCfg M w) c1 ∧ isFinal M c1 ∧ finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isFinal (coTm M) c2 → c1 = c2 := by
   intro ⟨h1, h2, h3, h4⟩
