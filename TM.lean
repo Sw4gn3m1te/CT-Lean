@@ -65,7 +65,7 @@ structure Machine where
 structure Dtm extends Machine where
 
   uniqueness:
-    ∀ x y, (δ x = δ y ↔ x = y)
+    ∀ (x y : Cfg), (δ (x.state, x.right.head!) = δ (y.state, y.right.head!) ↔ x = y)
 
 
 def startCfg (M : Dtm) (w : Word) : Cfg := 
@@ -227,7 +227,9 @@ def stepMOnCN (M : Dtm) (c : Cfg) (n : ℕ) : Cfg :=
 
 def reachSucc (M : Dtm) (c1 c2 : Cfg) : Prop :=
   stepMOnC M c1 = c2
-  -- ∃ (s w : ℕ) (d : Direction), M.δ (c1.state, c1.right.head!) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
+
+def reachSuccNtm (M : Machine) (c1 c2 : Cfg) : Prop :=
+  ∃ (s w : ℕ) (d : Direction), M.δ (c1.state, c1.right.head!) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
 
 def isAccept (M : Dtm) (c : Cfg)  : Prop :=
   c.state ∈ M.F ∧ validCfg M c
@@ -760,19 +762,6 @@ theorem stepMOnCNEqStepCoMOnCN (M : Dtm) (w : Word) (c : Cfg) (n : ℕ) : stepMO
       rw [ih]
       exact w
 
-theorem sameStepsIffSameDelta (M1 M2 : Dtm) (c : Cfg) : M1.δ = M2.δ ↔ ∀ c, stepMOnC M1 c = stepMOnC M2 c := by 
-  constructor
-  intro h c
-  rw [stepMOnC]
-  rw [h]
-  rw [stepMOnC]
-  intro h
-  specialize h c
-  have g1 := stepMOnC M1 c
-  have g2 := stepMOnC M2 c
-  sorry
-
-
 theorem reachNExtendsFinalState (M : Dtm) (w : Word) (c : Cfg) (n : ℕ) : (reachN M n (startCfg M w) c ∧ isFinal M c) → reachN M (n+1) (startCfg M w) c := by
   intro ⟨h1, h2⟩
   use c
@@ -782,7 +771,6 @@ theorem reachNExtendsFinalState (M : Dtm) (w : Word) (c : Cfg) (n : ℕ) : (reac
   rw [reachSucc]
   rw [isFinal] at h2
   exact h2.1
-
 
 theorem reach1IffStepMOnC1 (M : Dtm) (c1 c2 : Cfg) : reachN M 1 c1 c2 ↔ stepMOnCN M c1 1 = c2 := by
   constructor
@@ -827,7 +815,36 @@ theorem reachNCCIfIsFinalC (M : Dtm) (c : Cfg) (h0 : validCfg M c) : isFinal M c
       use c
       exact ⟨ih ,h1⟩
 
-theorem reachNIffStepMOnCN (M : Dtm) (c1 c2 : Cfg) : reachN M n c1 c2 ↔ stepMOnCN M c1 n = c2 := by
+
+theorem swapStepMOnCAndStepMOnCN (M : Dtm) (c : Cfg) (n : ℕ) : stepMOnCN M (stepMOnC M c) n = stepMOnC M (stepMOnCN M c n) := by
+  induction n generalizing c with
+    | zero => 
+      repeat rw [stepMOnCN]
+    | succ n ih =>
+      tauto
+      
+
+theorem stepMOnCNPlusOneIffStepMOnCNAndStepMOnC (M : Dtm) (c1 c3) (n : ℕ) : stepMOnCN M c1 (n+1) = c3 ↔ ∃ c2, stepMOnCN M c1 n = c2 ∧ stepMOnC M c2 = c3 := by
+  constructor
+  intro h
+  induction n generalizing c1 with
+    | zero => 
+      tauto
+    | succ n ih =>
+      tauto
+  
+  rintro ⟨c2, h1, h2⟩
+  induction n generalizing c1 with
+    | zero => 
+      repeat rw [stepMOnCN]
+      rw [stepMOnCN] at h1
+      rw [h1]
+      exact h2
+    | succ n ih => 
+      tauto
+
+
+theorem reachNIffStepMOnCN (M : Dtm) (c1 c2 c : Cfg) : reachN M n c1 c2 ↔ stepMOnCN M c1 n = c2 := by
   constructor
   intro h
   induction n generalizing c2 with
@@ -836,13 +853,16 @@ theorem reachNIffStepMOnCN (M : Dtm) (c1 c2 : Cfg) : reachN M n c1 c2 ↔ stepMO
       rw [stepMOnCN, ← cfgEquivIffEq]
       exact h
     | succ n ih => 
-
       rcases h with ⟨c, h1, h2⟩
       specialize ih c
       specialize ih h1
       rw [stepMOnCN]
-      sorry
-  
+      cases ih
+      rw [reachSucc] at h2
+      rw [← h2]
+      cases h2
+      apply swapStepMOnCAndStepMOnCN
+
   intro h
   induction n generalizing c2 with
     | zero =>
@@ -850,13 +870,16 @@ theorem reachNIffStepMOnCN (M : Dtm) (c1 c2 : Cfg) : reachN M n c1 c2 ↔ stepMO
       rw [stepMOnCN] at h
       exact h
     | succ n ih =>
+      rw [stepMOnCNPlusOneIffStepMOnCNAndStepMOnC] at h
+      rcases h with ⟨c4, h⟩
       rw [reachN]
-      use (stepMOnC M c1)
+      use c4
+      rw [reachSucc]
+      specialize ih c4
       constructor
-      specialize ih (stepMOnC M c1)
       apply ih
-      sorry
-      sorry
+      exact h.1
+      exact h.2
 
 
 theorem finiteReachIffExRun (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M c1 c2 ↔ ∃ n, (stepMOnCN M c1 n) = c2 := by
@@ -866,11 +889,13 @@ theorem finiteReachIffExRun (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M c
   use n
   rw [reachNIffStepMOnCN] at h
   exact h
+  exact c1
   rintro ⟨n, h⟩
   rw [finiteReach]
   use n
   rw [reachNIffStepMOnCN]
   exact h
+  exact c1
 
 theorem mHaltsOnWIffExRun (M : Dtm) (w : Word) (c : Cfg) : mHaltsOnW M w ↔ (∃ n, isFinal M (stepMOnCN M (startCfg M w) n)) := by
   constructor
@@ -889,39 +914,45 @@ theorem mHaltsOnWIffExRun (M : Dtm) (w : Word) (c : Cfg) : mHaltsOnW M w ↔ (�
   constructor
   rw [finiteReach]
   use n
-  rw [reachNIffStepMOnCN] -- unproven
+  rw [reachNIffStepMOnCN]
+  exact c
   rw [isFinal]
   exact h
 
 
-theorem testest (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M (startCfg M w) c1 ∧ isFinal M c1 ∧ finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isFinal (coTm M) c2 → c1 = c2 := by
+theorem c1EqC2IfUpdateCfgEqC1AndC2 (c c1 c2 : Cfg) (q γ : ℕ) (d : Direction) : updateCfg c q γ d = c1 ∧ updateCfg c q γ d = c2 → c1 = c2 := by
+  intro ⟨h1, h2⟩
+  cases h1
+  tauto
+
+theorem c1EqC2IfStepMOnCEqC1AndC2 (M : Dtm) (w : Word) (c1 c2 : Cfg) : stepMOnC M (startCfg M w) = c1 ∧ stepMOnC M (startCfg M w) = c2 → c1 = c2 := by
+  repeat rw [stepMOnC]
+  intro ⟨h1, h2⟩
+  cases h1
+  tauto
+
+
+theorem snens (M : Dtm) (c c1 c2 : Cfg) (qγ : ℕ × ℕ) (d : Direction) : updateCfg c (M.δ qγ).fst (M.δ qγ).snd.fst (M.δ qγ).snd.snd = c1 ∧ updateCfg c (M.δ qγ).fst (M.δ qγ).snd.fst (M.δ qγ).snd.snd = c2 → c1 = c2 := by
+  intro ⟨h1, h2⟩
+  cases h1
+  tauto
+
+theorem c1EqC2IffiniteReachFinalMAndCoM (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M (startCfg M w) c1 ∧ isFinal M c1 ∧ finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isFinal (coTm M) c2 → c1 = c2 := by
+
   intro ⟨h1, h2, h3, h4⟩
   rw [← startCfgTmEqstartCfgCoTm, ← mFiniteReachIffCoMFiniteReach] at h3
   rw [← isFinalMIffisFinalcoTm] at h4
-  -- show main result here !
-  by_contra f
-  rw [isFinal] at h2 h4
-  rcases h1 with ⟨n1, h1⟩
-  rcases h3 with ⟨n2, h3⟩
+  have g := M.uniqueness
+  specialize g c1 c2
+  rw [finiteReach] at h1 h3
+  rcases h1 with ⟨n1, h1⟩ 
+  rcases h3 with ⟨n3, h3⟩
+  rcases h2 with ⟨h2, _⟩
+  rcases h4 with ⟨h4, _⟩
+  rw [← h4, ← h2]
   sorry
 
-
 theorem mAcceptsWAndCoMAcceptsWIffFalse (M : Dtm) (w : Word) : (mAcceptsW M w ∧ mAcceptsW (coTm M) w) ↔ False := by
-  constructor
-  intro ⟨hl, hr⟩
-  rcases hl with ⟨c1, hl⟩
-  rcases hr with ⟨c2, hr⟩
-  have f : c1 = c2 := sorry -- by uniqueness
-  have g1 := hl.2.1
-  have g2 := hr.2.1
-  rw [← f] at g2
-  rw [mAcceptsCIffCoMRejectsC] at g1
-  rw [isAccept] at g2
-  rw [isReject] at g1
-  exact g1.1 g2.1
-  simp
-
-theorem mAcceptsWAndCoMAcceptsWIffFalse2 (M : Dtm) (w : Word) : (mAcceptsW M w ∧ mAcceptsW (coTm M) w) ↔ False := by
   constructor
   intro ⟨h1, h2⟩
   have g : mHaltsOnW M w ∧ mHaltsOnW (coTm M) w
@@ -931,7 +962,7 @@ theorem mAcceptsWAndCoMAcceptsWIffFalse2 (M : Dtm) (w : Word) : (mAcceptsW M w �
   rcases h1 with ⟨c1, h1⟩
   rcases h2 with ⟨c2, h2⟩
   have f : c1 = c2
-  apply testest M w -- here
+  apply c1EqC2IffiniteReachFinalMAndCoM M w
   exact ⟨h1.1, h1.2.2, h2.1, h2.2.2⟩
   rw [← f] at h2
   have g1 := h1.2.1
@@ -941,7 +972,6 @@ theorem mAcceptsWAndCoMAcceptsWIffFalse2 (M : Dtm) (w : Word) : (mAcceptsW M w �
   rw [isReject] at g1
   exact g1.1 g2.1
   simp
-  
 
 
 theorem mRejectsWAndCoMRejectsWIffFalse (M : Dtm) (w : Word) : (mRejectsW M w ∧ mRejectsW (coTm M) w) ↔ False := by
