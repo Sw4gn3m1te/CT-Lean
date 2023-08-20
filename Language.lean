@@ -7,7 +7,7 @@ import Mathlib.Data.List.Basic
 def Word := List ℕ
 
 def Word.concat (v w : Word) : Word := List.append v w
-infixr:50 " + " => Word.concat
+infixr:50 " ∘ " => Word.concat
 
 
 def Word.len (w: Word) : ℕ :=

@@ -88,11 +88,6 @@ structure KTapeMachine where
   k : ℕ
   δ : ℕ × (Fin k → ℕ) → ℕ × (Fin k → ℕ) × (Fin k → Direction)
 
---def KTapeMachineToMachine (kM : TapeMachine) : Machine :=
---  {Q := kM.Q, Λ := kM.Λ, Γ := kM.Γ ∪ {max kM.Γ+1}, F := kM.F, q0 := kM.q0, δ:=kM.δ}
-
-def logNBaseB (n b : ℕ) : ℕ :=
-  ((Float.log2 n.toFloat) / (Float.log2 b.toFloat)).toUInt64.toNat
 
 def goedelize (m n : ℕ) : ℕ :=
   2^m*3^n
@@ -260,7 +255,7 @@ def languageOfMachine (M : Dtm) : Language :=
   { w | mAcceptsW M w}
 
 def wordFromConfig (c : Cfg) : Word := 
-  c.left ++ c.right
+  c.left ∘ c.right
 
 theorem startCfgTmEqstartCfgCoTm (M : Dtm) : startCfg M = startCfg (coTm M) := by
   tauto
@@ -274,12 +269,8 @@ def startCfgIsValid (M : Dtm) (w : Word) : validCfg M (startCfg M w) := by
   simp
   apply M.q0InQ
 
-def stepMOnCPerservesCfgValidity (M : Dtm) (c : Cfg) : validCfg M c ↔ validCfg M (stepMOnC M c) := by
+def stepMOnCPreservesCfgValidity (M : Dtm) (c : Cfg) : validCfg M c ↔ validCfg M (stepMOnC M c) := by
   sorry
-
-theorem noHaltingMachineExists (MHalt M : Dtm) (w : Word) : ¬ ∃ (MHalt : Dtm), (∀ M, mHaltsOnW M w) := by
-  sorry
-
 
 theorem langMNonEmptyIffMAcceptsAnyW (M : Dtm) : (languageOfMachine M).Nonempty ↔ ∃ (w : Word), mAcceptsW M w := by
   rw [Set.Nonempty]
@@ -993,36 +984,31 @@ theorem reachSuccC1C2IfIsFinalC1 (M : Dtm) (c1 : Cfg) (h0 : validCfg M c1) : isF
   rfl
   exact h0
 
-
-theorem reachN2C1C2IfReachN1C1C2AndN2GrN1 (M : Dtm) (n1 n2 : ℕ) (c1 c2 : Cfg) (h0 : n2 > n1) : reachN M n1 c1 c2 ∧ isFinal M c2 → reachN M n2 c1 c2 := by
+theorem reachN2C1C2IfReachN1C1C2AndN2GrN1 (M : Dtm) (a n1 n2 : ℕ) (c1 c2 : Cfg) (h0 : n2 = n1 + a) : reachN M n1 c1 c2 ∧ isFinal M c2 → reachN M n2 c1 c2 := by
   intro ⟨h1, h2⟩
-  have g : ∃ c3, reachSucc M c2 c3 ∧ c2 = c3
-  apply reachSuccC1C2IfIsFinalC1
-  rw [isFinal] at h2
-  exact h2.2
-  exact h2
-  rcases g with ⟨c3, g1, g2⟩
-  induction n2 generalizing c2 n1 with 
+  rw [h0]
+  induction a generalizing n1 with
     | zero =>
       tauto
-    | succ n2 ih =>
-      rw [reachN]
-      use c3
-      specialize ih n1 c3
-      constructor
+    | succ a ih =>
+      specialize ih (n1 + 1)
+      have f : reachN M (n1 + 1 + a) c1 c2 = reachN M (n1 + Nat.succ a) c1 c2
+      rw [add_assoc, add_comm 1, Nat.succ_eq_add_one]
+      rw [← f]
       apply ih
-      sorry
-      rw [← g2]
-      exact h1
-      rw [g2] at h2
-      exact h2
-      rw [g2] at g1
-      exact g1
-      rfl
-      rw [g2] at g1
-      rw [g2]
-      exact g1
+      rw [h0]
+      simp_arith
+      have h3 : reachN M n1 c1 c2 ∧ isFinal M c2 := ⟨h1, h2⟩
+      have g := reachNExtendsFinalState M c1 c2 n1 h3
+      exact g.1
 
+
+theorem existsAEqualizingLt (n m : ℕ) : m < n → ∃ a, n = m + a := by
+  intro h
+  use (n-m)
+  rw [Nat.add_sub_cancel']
+  rw [Nat.lt_iff_le_and_ne] at h
+  exact h.1  
 
 theorem c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 (M : Dtm) (n m : ℕ) (c0 c1 c2 : Cfg) (h0: m < n) : reachN M n c0 c1 ∧ isFinal M c1 ∧ reachN M m c0 c2 ∧ isFinal M c2 → c1 = c2 := by
   intro ⟨h1, h2, h3, h4⟩
@@ -1032,8 +1018,10 @@ theorem c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 (M : Dtm) (n m : ℕ) (c0 c1
       constructor
       exact h1
       have h5 : reachN M m c0 c2 ∧ isFinal M c2 := ⟨h3, h4⟩
-      apply reachN2C1C2IfReachN1C1C2AndN2GrN1 M m n
-      exact h0
+      have g := existsAEqualizingLt n m h0
+      rcases g with ⟨a, g⟩
+      apply reachN2C1C2IfReachN1C1C2AndN2GrN1 M a m n
+      exact g
       exact h5
     | succ n ih =>
       tauto
