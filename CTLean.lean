@@ -8,9 +8,6 @@ import Mathlib.Data.List.Basic
 -- Γ : Tape Alph
 -- F : Fin States
 
--- Tm must dynamicly allocate memory when moving out of defined tape list
--- decidability of M.δ
-
 import TM
 import Language
 import Decidability

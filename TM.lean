@@ -127,7 +127,8 @@ def prodM (M1 M2 : Dtm) : Dtm :=
 
 
 def coTm (M : Dtm) : Dtm :=
-  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ, FInQ := by simp, q0InQ:=M.q0InQ, validδ:= M.validδ, uniqueness:=M.uniqueness}
+  {Q:=M.Q, Λ:=M.Λ, Γ:=M.Γ, F:=(M.Q \ M.F), q0:=M.q0, δ:=M.δ,
+   FInQ := by simp, q0InQ:=M.q0InQ, validδ:= M.validδ, uniqueness:=M.uniqueness}
 
 
 theorem mEqCoCoM (M : Dtm) : M = coTm (coTm M) := by
@@ -1027,32 +1028,34 @@ theorem c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 (M : Dtm) (n m : ℕ) (c0 c1
       tauto
  
 
-theorem c1EqC2IffFiniteReachFinalMAndCoM (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M (startCfg M w) c1 ∧ isFinal M c1 ∧ finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isFinal (coTm M) c2 → c1 = c2 := by
+theorem c1EqC2IffFiniteReachFinalMAndCoM (M : Dtm) (c0 c1 c2 : Cfg) :
+    finiteReach M c0 c1 ∧ isFinal M c1 ∧ finiteReach (coTm M) c0 c2 ∧ isFinal (coTm M) c2 → c1 = c2 := by
+
   intro ⟨h1, h2, h3, h4⟩
-  rw [← startCfgTmEqstartCfgCoTm, ← mFiniteReachIffCoMFiniteReach] at h3
+  rw [← mFiniteReachIffCoMFiniteReach] at h3
   rw [← isFinalMIffisFinalcoTm] at h4
   rw [finiteReach] at h1 h3
   rcases h1 with ⟨n, h1⟩ 
   rcases h3 with ⟨m, h3⟩
-  have f1 : reachN M (n+1) (startCfg M w) c1 ∧ isFinal M c1
+  have f1 : reachN M (n+1) c0 c1 ∧ isFinal M c1
   apply reachNExtendsFinalState
   exact ⟨h1, h2⟩
-  have f2 : reachN M (m+1) (startCfg M w) c2 ∧ isFinal M c2
+  have f2 : reachN M (m+1) c0 c2 ∧ isFinal M c2
   apply reachNExtendsFinalState
   exact ⟨h3, h4⟩
   by_cases (m=n)
   rw [h] at h3
-  apply c1EqC2IfReachNC1AndReachNC2 M n (startCfg M w)
+  apply c1EqC2IfReachNC1AndReachNC2 M n c0
   tauto
   have h0 : m < n ∨ m > n
   simp
   exact h
   rcases h0 with hless | hgreater
-  apply c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 M n m (startCfg M w)
+  apply c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 M n m c0
   exact hless
   exact ⟨h1, f1.2, h3, f2.2⟩
   symm
-  apply c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 M m n (startCfg M w)
+  apply c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 M m n c0
   exact hgreater
   exact ⟨h3, f2.2, h1, f1.2⟩
 
@@ -1067,7 +1070,7 @@ theorem mAcceptsWAndCoMAcceptsWIffFalse (M : Dtm) (w : Word) : (mAcceptsW M w �
   rcases h1 with ⟨c1, h1⟩
   rcases h2 with ⟨c2, h2⟩
   have f : c1 = c2
-  apply c1EqC2IffFiniteReachFinalMAndCoM M w
+  apply c1EqC2IffFiniteReachFinalMAndCoM M
   exact ⟨h1.1, h1.2.2, h2.1, h2.2.2⟩
   rw [← f] at h2
   have g1 := h1.2.1

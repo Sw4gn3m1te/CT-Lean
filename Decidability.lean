@@ -19,7 +19,7 @@ def isSemiDecider (M : Dtm) (L : Language) : Prop :=
   ∀ (w : Word), (w ∈ L ↔ mAcceptsW M w)
 
 def isCoSemiDecider (M : Dtm) (L : Language) : Prop := 
-  ∀ (w : Word), (w ∉ L ↔ mRejectsW M w)
+  ∀ (w : Word), (w ∉ L ↔ mAcceptsW M w)
 
 def isDecider (M : Dtm) (L : Language) : Prop := 
   ∀ (w : Word), (w ∈ L ↔ mAcceptsW M w) ∧ (w ∉ L ↔ mRejectsW M w)
