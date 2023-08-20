@@ -36,6 +36,7 @@ def directionToNum (d : Direction) : ℤ :=
 
 -- cfg = [tl] q [tr], q points to the first elem of tr
 -- hence inital config is [] q_0 [w] for some input w
+
 structure Cfg where
   state : ℕ 
   head : ℕ
@@ -65,7 +66,7 @@ structure Machine where
 structure Dtm extends Machine where
 
   uniqueness:
-    ∀ (x y : Cfg), (δ (x.state, x.right.head!) = δ (y.state, y.right.head!) ↔ x = y)
+    ∀ (x y : Cfg), (δ (x.state, x.right.head!) = δ (y.state, y.right.head!) → x = y)
 
 
 def startCfg (M : Dtm) (w : Word) : Cfg := 
@@ -101,6 +102,7 @@ def deGoedelize (n : ℕ) : ℕ × ℕ :=
 
 #eval goedelize 5 12
 #eval (deGoedelize (goedelize 5 12))
+
 
 theorem goedelizePreservesSize (A : Finset ℕ) : (Finset.product A A).card = ((Finset.product A A).image (fun n : ℕ × ℕ => goedelize n.fst n.snd)).card := by
   sorry
@@ -206,6 +208,7 @@ def updateHead (n: ℕ) (d: Direction) : ℕ :=
 
 
 -- creates new config by applying changes to old config
+
 def updateCfg (c: Cfg) (q γ : ℕ) (d: Direction) : Cfg := 
   match c.head, d with
     | 0, Direction.L => {state := q, head := 0, left := List.nil,  right := c.right.modifyHead γ}
@@ -213,12 +216,8 @@ def updateCfg (c: Cfg) (q γ : ℕ) (d: Direction) : Cfg :=
     | _, Direction.R => {state := q, head := c.head+1, left := c.left.append [γ],  right := c.right.tail}
     | _, Direction.N => {state := q, head := c.head, left := c.left,  right := c.right.modifyHead γ}
 
---def reachSuccOld (M : Machine) (c1 c2 : Cfg) : Prop :=
---  ∃ (a γ s w : ℕ) (d : Direction), M.δ (a, γ) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
-
 def stepMOnC (M : Dtm) (c : Cfg) : Cfg :=
   updateCfg c (M.δ (c.state, c.right.head!)).fst (M.δ (c.state, c.right.head!)).snd.fst (M.δ (c.state, c.right.head!)).snd.snd
-
 
 def stepMOnCN (M : Dtm) (c : Cfg) (n : ℕ) : Cfg :=
   match n with
@@ -228,8 +227,13 @@ def stepMOnCN (M : Dtm) (c : Cfg) (n : ℕ) : Cfg :=
 def reachSucc (M : Dtm) (c1 c2 : Cfg) : Prop :=
   stepMOnC M c1 = c2
 
-def reachSuccNtm (M : Machine) (c1 c2 : Cfg) : Prop :=
-  ∃ (s w : ℕ) (d : Direction), M.δ (c1.state, c1.right.head!) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
+def reachN (M : Dtm) (n : ℕ) (c1 c2 : Cfg) : Prop :=
+  match n with
+  | 0 => cfgEquiv c1 c2
+  | Nat.succ m => ∃ (c : Cfg), (reachN M m c1 c ∧ reachSucc M c c2)
+
+def finiteReach (M : Dtm) (c1 c2 : Cfg) : Prop :=
+  ∃ (n : ℕ), reachN M n c1 c2
 
 def isAccept (M : Dtm) (c : Cfg)  : Prop :=
   c.state ∈ M.F ∧ validCfg M c
@@ -239,16 +243,6 @@ def isReject (M : Dtm) (c : Cfg)  : Prop :=
 
 def isFinal (M  : Dtm) (c : Cfg) : Prop :=
   stepMOnC M c = c ∧ validCfg M c
-  -- M.δ (c.state, c.right.head!) = (c.state, c.right.head!, Direction.N) ∧ validCfg M c
-
-
-def reachN (M : Dtm) (n : ℕ) (c1 c2 : Cfg) : Prop :=
-  match n with
-  | 0 => cfgEquiv c1 c2
-  | Nat.succ m => ∃ (c : Cfg), (reachN M m c1 c ∧ reachSucc M c c2)
-
-def finiteReach (M : Dtm) (c1 c2 : Cfg) : Prop :=
-  ∃ (n : ℕ), reachN M n c1 c2
 
 def mHaltsOnW (M : Dtm) (w : Word) : Prop :=
   ∃ (c : Cfg), finiteReach M (startCfg M w) c ∧ isFinal M c
@@ -258,8 +252,9 @@ def mAcceptsW (M : Dtm) (w : Word) : Prop :=
 
 def mRejectsW (M : Dtm) (w : Word) : Prop :=
  ¬ mAcceptsW M w ∧ mHaltsOnW M w
- -- ∀ (c:Cfg), (isFinal M c ∧ finiteReach M (startCfg M w) ∧ ) c → isReject M c 
 
+def reachSuccNtm (M : Machine) (c1 c2 : Cfg) : Prop :=
+  ∃ (s w : ℕ) (d : Direction), M.δ (c1.state, c1.right.head!) = (s, w, d) ∧ cfgEquiv (updateCfg c1 s w d) c2 
  
 def languageOfMachine (M : Dtm) : Language := 
   { w | mAcceptsW M w}
@@ -280,9 +275,7 @@ def startCfgIsValid (M : Dtm) (w : Word) : validCfg M (startCfg M w) := by
   apply M.q0InQ
 
 def stepMOnCPerservesCfgValidity (M : Dtm) (c : Cfg) : validCfg M c ↔ validCfg M (stepMOnC M c) := by
-  constructor
-  intro h
-  repeat sorry
+  sorry
 
 theorem noHaltingMachineExists (MHalt M : Dtm) (w : Word) : ¬ ∃ (MHalt : Dtm), (∀ M, mHaltsOnW M w) := by
   sorry
@@ -294,12 +287,6 @@ theorem langMNonEmptyIffMAcceptsAnyW (M : Dtm) : (languageOfMachine M).Nonempty 
 
 theorem wInLIffWNotInCoL (L : Language) (w : Word) : w ∈ L ↔ w ∉ Lᶜ := by
   simp
-
-
--- if c2 can be reached from c1 then there ex a sequence cs of configs from c1 to c2 (maybe emtpy if c2 is succ of c1)
-theorem pathReachability (M : Dtm) (c1 c2 : Cfg) : finiteReach M c1 c2 → (∃ (cs : List Cfg), ∀ (c : Cfg), c ∈ cs → finiteReach M c c2) := by
-  sorry
-  
 
 theorem reach2IfReachSuccSucc (M : Dtm) (c1 c2 c3 : Cfg) : reachSucc M c1 c2 ∧ reachSucc M c2 c3 → reachN M 2 c1 c3 := by
   intro ⟨hr, hl⟩
@@ -322,7 +309,7 @@ theorem finiteReachIffReachN (c1 c2 : Cfg) (M : Dtm) : finiteReach M c1 c2 ↔ �
   rw [finiteReach]
   use n
   exact h
-  
+
 
 theorem reach0EqCfgEquiv (M : Dtm) (c1 c2 : Cfg) : reachN M 0 c1 c2 ↔ cfgEquiv c1 c2 := by
   constructor
@@ -347,28 +334,7 @@ lemma natSucc2 (m n : ℕ) : (n + Nat.succ m) = (Nat.succ (n + m)) := by
   simp_arith
 
 
-theorem addCompPathLen2 (M : Dtm) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M m c1 c2 ∧ reachN M n c2 c3)) → reachN M (m + n) c1 c3 := by 
-  intro h
-  rcases h with ⟨c, hl, hr⟩
-  induction n generalizing c3 with
-    | zero =>
-      simp
-      rw [reachN] at hr
-      rw [cfgEquivIffEq] at hr
-      rw [← hr]
-      exact hl
-    | succ m ih =>
-      rw [natSucc2, reachN]
-      rcases hr with ⟨c4, hr1, hr2⟩
-      use c4
-      specialize ih c4
-      constructor
-      apply ih
-      exact hr1
-      exact hr2
-
-
-theorem addCompPathLen (M : Dtm) (c1 c2 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M n c1 c2 ∧ reachN M m c2 c3)) ↔ reachN M (n + m) c1 c3 := by 
+theorem addCompPathLen (M : Dtm) (c1 c3 : Cfg) (m n : ℕ) :  (∃ c2, (reachN M n c1 c2 ∧ reachN M m c2 c3)) ↔ reachN M (n + m) c1 c3 := by 
   constructor
   intro h
   rcases h with ⟨c, hl, hr⟩
@@ -421,7 +387,6 @@ theorem transFiniteReach (M : Dtm) (c1 c2 c3 : Cfg) : (finiteReach M c1 c2 ∧ f
   rw [← addCompPathLen]
   use c2
   exact ⟨hl, hr⟩
-  exact c2
 
 theorem finiteReachSelf (M : Dtm) (c : Cfg) : finiteReach M c c := by
   rw [finiteReach]
@@ -762,15 +727,17 @@ theorem stepMOnCNEqStepCoMOnCN (M : Dtm) (w : Word) (c : Cfg) (n : ℕ) : stepMO
       rw [ih]
       exact w
 
-theorem reachNExtendsFinalState (M : Dtm) (w : Word) (c : Cfg) (n : ℕ) : (reachN M n (startCfg M w) c ∧ isFinal M c) → reachN M (n+1) (startCfg M w) c := by
+theorem reachNExtendsFinalState (M : Dtm) (c1 c2 : Cfg) (n : ℕ) : (reachN M n c1 c2 ∧ isFinal M c2) → reachN M (n+1) c1 c2 ∧ isFinal M c2 := by
   intro ⟨h1, h2⟩
-  use c
+  constructor
+  use c2
   simp
   constructor
   exact h1
   rw [reachSucc]
   rw [isFinal] at h2
   exact h2.1
+  exact h2
 
 theorem reach1IffStepMOnC1 (M : Dtm) (c1 c2 : Cfg) : reachN M 1 c1 c2 ↔ stepMOnCN M c1 1 = c2 := by
   constructor
@@ -803,7 +770,7 @@ theorem isFinalCIffReachSuccCC (M : Dtm) (c : Cfg) (h0 : validCfg M c) : isFinal
   exact h
   exact h0
 
-theorem reachNCCIfIsFinalC (M : Dtm) (c : Cfg) (h0 : validCfg M c) : isFinal M c → reachN M n c c := by
+theorem reachNCCIfIsFinalC (M : Dtm) (c : Cfg) : isFinal M c → reachN M n c c := by
   intro h
   rcases h with ⟨h1, h2⟩
   rw [← reachSucc] at h1
@@ -925,32 +892,182 @@ theorem c1EqC2IfUpdateCfgEqC1AndC2 (c c1 c2 : Cfg) (q γ : ℕ) (d : Direction) 
   cases h1
   tauto
 
-theorem c1EqC2IfStepMOnCEqC1AndC2 (M : Dtm) (w : Word) (c1 c2 : Cfg) : stepMOnC M (startCfg M w) = c1 ∧ stepMOnC M (startCfg M w) = c2 → c1 = c2 := by
+theorem c1EqC2IfStepMOnCEqC1AndC2 (M : Dtm) (c0 c1 c2 : Cfg) : stepMOnC M c0 = c1 ∧ stepMOnC M c0 = c2 → c1 = c2 := by
   repeat rw [stepMOnC]
   intro ⟨h1, h2⟩
   cases h1
   tauto
 
 
-theorem snens (M : Dtm) (c c1 c2 : Cfg) (qγ : ℕ × ℕ) (d : Direction) : updateCfg c (M.δ qγ).fst (M.δ qγ).snd.fst (M.δ qγ).snd.snd = c1 ∧ updateCfg c (M.δ qγ).fst (M.δ qγ).snd.fst (M.δ qγ).snd.snd = c2 → c1 = c2 := by
+theorem c1EqC2IfUpdateCfgC1EqC2 (M : Dtm) (c c1 c2 : Cfg) (qγ : ℕ × ℕ) : updateCfg c (M.δ qγ).fst (M.δ qγ).snd.fst (M.δ qγ).snd.snd = c1 ∧ updateCfg c (M.δ qγ).fst (M.δ qγ).snd.fst (M.δ qγ).snd.snd = c2 → c1 = c2 := by
   intro ⟨h1, h2⟩
   cases h1
   tauto
 
-theorem c1EqC2IffiniteReachFinalMAndCoM (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M (startCfg M w) c1 ∧ isFinal M c1 ∧ finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isFinal (coTm M) c2 → c1 = c2 := by
 
+theorem c1EqC2IfReachNC1AndReachNC2 (M : Dtm) (n : ℕ) (c0 c1 c2 : Cfg) : reachN M n c0 c1 ∧ reachN M n c0 c2 → c1 = c2 := by
+  intro ⟨h1, h2⟩
+  induction n generalizing c1 c2 with
+    | zero =>
+      rw [reachN, cfgEquivIffEq] at h1 h2
+      rw [h1] at h2
+      exact h2
+    | succ n ih =>
+      rcases h1 with ⟨c3, h1, h3⟩
+      rcases h2 with ⟨c4, h2, h4⟩
+      rw [reachSucc] at h3 h4
+      have c3EqC4 : c3 = c4
+      specialize ih c3 c4
+      specialize ih h1 h2
+      exact ih
+      rw [← h4, ← h3]
+      rw [c3EqC4]
+
+
+theorem isFinalC2IfIsFinalC1AndReachSuccC1C2 (M : Dtm) (c1 c2 : Cfg) : isFinal M c1 ∧ reachSucc M c1 c2 → isFinal M c2 ∧ c1 = c2 := by
+  intro ⟨h1, h2⟩
+  rw [reachSucc] at h2
+  have h3 := h1
+  rw [isFinal] at h1
+  rw [stepMOnC] at h1 h2
+  have g : updateCfg c1 (Machine.δ M.toMachine (c1.state, List.head! c1.right)).fst
+      (Machine.δ M.toMachine (c1.state, List.head! c1.right)).snd.fst
+      (Machine.δ M.toMachine (c1.state, List.head! c1.right)).snd.snd =
+    c1 ∧ updateCfg c1 (Machine.δ M.toMachine (c1.state, List.head! c1.right)).fst
+      (Machine.δ M.toMachine (c1.state, List.head! c1.right)).snd.fst
+      (Machine.δ M.toMachine (c1.state, List.head! c1.right)).snd.snd =
+    c2 := ⟨h1.1, h2⟩
+  have f : c1 = c2
+  apply c1EqC2IfUpdateCfgC1EqC2 M c1 c1
+  exact ⟨h1.1, h2⟩
+  constructor
+  rw [f] at h3
+  exact h3
+  exact f
+   
+
+theorem c1EqC2IfReachNC1AndReachNC2NPlusOne (M : Dtm) (n : ℕ) (c0 c1 c2 : Cfg) : reachN M n c0 c1 ∧ isFinal M c1 ∧ reachN M (n+1) c0 c2 → c1 = c2 := by
+  intro ⟨h1, h2, c3, h3, h4⟩
+  simp at h3
+  have c1EqC3 : c1 = c3
+  apply c1EqC2IfReachNC1AndReachNC2 M n c0
+  repeat rw [reachNIffStepMOnCN]
+  induction n with
+    | zero =>
+      rw [stepMOnCN]
+      rw [reachNIffStepMOnCN, stepMOnCN] at h1 h3
+      tauto
+      exact c1
+      exact c3
+    | succ n ih =>
+      rw [stepMOnCN]
+      rw [reachNIffStepMOnCN, stepMOnCN] at h1 h3
+      exact ⟨h1, h3⟩
+      exact c1
+      exact c2
+  
+  constructor
+  exact n
+  exact n
+  exact [n]
+  exact [n]
+  exact c1
+  rw [c1EqC3] at h2
+  have g : isFinal M c2 ∧ c1 = c2
+  apply isFinalC2IfIsFinalC1AndReachSuccC1C2
+  constructor
+  rw [c1EqC3]
+  exact h2
+  rw [c1EqC3]
+  exact h4
+  exact g.2
+  
+
+
+theorem reachSuccC1C2IfIsFinalC1 (M : Dtm) (c1 : Cfg) (h0 : validCfg M c1) : isFinal M c1 → ∃ c2, reachSucc M c1 c2 ∧ c1 = c2 := by
+  intro h
+  use c1
+  rw [← isFinalCIffReachSuccCC]
+  constructor
+  exact h
+  rfl
+  exact h0
+
+
+theorem reachN2C1C2IfReachN1C1C2AndN2GrN1 (M : Dtm) (n1 n2 : ℕ) (c1 c2 : Cfg) (h0 : n2 > n1) : reachN M n1 c1 c2 ∧ isFinal M c2 → reachN M n2 c1 c2 := by
+  intro ⟨h1, h2⟩
+  have g : ∃ c3, reachSucc M c2 c3 ∧ c2 = c3
+  apply reachSuccC1C2IfIsFinalC1
+  rw [isFinal] at h2
+  exact h2.2
+  exact h2
+  rcases g with ⟨c3, g1, g2⟩
+  induction n2 generalizing c2 n1 with 
+    | zero =>
+      tauto
+    | succ n2 ih =>
+      rw [reachN]
+      use c3
+      specialize ih n1 c3
+      constructor
+      apply ih
+      sorry
+      rw [← g2]
+      exact h1
+      rw [g2] at h2
+      exact h2
+      rw [g2] at g1
+      exact g1
+      rfl
+      rw [g2] at g1
+      rw [g2]
+      exact g1
+
+
+theorem c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 (M : Dtm) (n m : ℕ) (c0 c1 c2 : Cfg) (h0: m < n) : reachN M n c0 c1 ∧ isFinal M c1 ∧ reachN M m c0 c2 ∧ isFinal M c2 → c1 = c2 := by
+  intro ⟨h1, h2, h3, h4⟩
+  induction (m+n) generalizing c0 with 
+    | zero =>
+      apply c1EqC2IfReachNC1AndReachNC2 M n c0
+      constructor
+      exact h1
+      have h5 : reachN M m c0 c2 ∧ isFinal M c2 := ⟨h3, h4⟩
+      apply reachN2C1C2IfReachN1C1C2AndN2GrN1 M m n
+      exact h0
+      exact h5
+    | succ n ih =>
+      tauto
+ 
+
+theorem c1EqC2IffFiniteReachFinalMAndCoM (M : Dtm) (w : Word) (c1 c2 : Cfg) : finiteReach M (startCfg M w) c1 ∧ isFinal M c1 ∧ finiteReach (coTm M) (startCfg (coTm M) w) c2 ∧ isFinal (coTm M) c2 → c1 = c2 := by
   intro ⟨h1, h2, h3, h4⟩
   rw [← startCfgTmEqstartCfgCoTm, ← mFiniteReachIffCoMFiniteReach] at h3
   rw [← isFinalMIffisFinalcoTm] at h4
-  have g := M.uniqueness
-  specialize g c1 c2
   rw [finiteReach] at h1 h3
-  rcases h1 with ⟨n1, h1⟩ 
-  rcases h3 with ⟨n3, h3⟩
-  rcases h2 with ⟨h2, _⟩
-  rcases h4 with ⟨h4, _⟩
-  rw [← h4, ← h2]
-  sorry
+  rcases h1 with ⟨n, h1⟩ 
+  rcases h3 with ⟨m, h3⟩
+  have f1 : reachN M (n+1) (startCfg M w) c1 ∧ isFinal M c1
+  apply reachNExtendsFinalState
+  exact ⟨h1, h2⟩
+  have f2 : reachN M (m+1) (startCfg M w) c2 ∧ isFinal M c2
+  apply reachNExtendsFinalState
+  exact ⟨h3, h4⟩
+  by_cases (m=n)
+  rw [h] at h3
+  apply c1EqC2IfReachNC1AndReachNC2 M n (startCfg M w)
+  tauto
+  have h0 : m < n ∨ m > n
+  simp
+  exact h
+  rcases h0 with hless | hgreater
+  apply c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 M n m (startCfg M w)
+  exact hless
+  exact ⟨h1, f1.2, h3, f2.2⟩
+  symm
+  apply c1EqC2IfReachNC0C1AndReachNC0C2AndIsFinalC1 M m n (startCfg M w)
+  exact hgreater
+  exact ⟨h3, f2.2, h1, f1.2⟩
+
 
 theorem mAcceptsWAndCoMAcceptsWIffFalse (M : Dtm) (w : Word) : (mAcceptsW M w ∧ mAcceptsW (coTm M) w) ↔ False := by
   constructor
@@ -962,7 +1079,7 @@ theorem mAcceptsWAndCoMAcceptsWIffFalse (M : Dtm) (w : Word) : (mAcceptsW M w �
   rcases h1 with ⟨c1, h1⟩
   rcases h2 with ⟨c2, h2⟩
   have f : c1 = c2
-  apply c1EqC2IffiniteReachFinalMAndCoM M w
+  apply c1EqC2IffFiniteReachFinalMAndCoM M w
   exact ⟨h1.1, h1.2.2, h2.1, h2.2.2⟩
   rw [← f] at h2
   have g1 := h1.2.1
